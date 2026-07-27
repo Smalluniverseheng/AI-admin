@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 管理后台</title>
+  <link rel="stylesheet" href="css/admin.css?v=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <!-- 登录页 -->
+  <div id="loginPage" class="page active">
+    <div class="login-box">
+      <h1>🔐 AI 管理后台</h1>
+      <p>第三方科技 · AI 智能聚合平台</p>
+      <input type="email" id="loginEmail" placeholder="管理员邮箱" />
+      <input type="password" id="loginPassword" placeholder="密码" />
+      <button id="loginBtn">登录</button>
+      <p id="loginError" class="error"></p>
+    </div>
+  </div>
+
+  <!-- 管理后台 -->
+  <div id="adminPage" class="page">
+    <aside class="sidebar">
+      <div class="logo">AI 后台</div>
+      <nav>
+        <a href="#" data-page="dashboard" class="active">📊 仪表盘</a>
+        <a href="#" data-page="users">👥 用户管理</a>
+        <a href="#" data-page="agents">🤝 代理管理</a>
+        <a href="#" data-page="orders">💰 订单管理</a>
+        <a href="#" data-page="settings">⚙️ 系统设置</a>
+      </nav>
+      <div class="user-info">
+        <span id="adminEmail">admin@example.com</span>
+        <button id="logoutBtn">退出</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <!-- 仪表盘 -->
+      <section id="dashboard" class="content active">
+        <h2>📊 仪表盘</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="statUsers">0</div>
+            <div class="stat-label">总用户数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statAgents">0</div>
+            <div class="stat-label">代理数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statOrders">0</div>
+            <div class="stat-label">今日订单</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="statRevenue">¥0</div>
+            <div class="stat-label">今日收入</div>
+          </div>
+        </div>
+        <div class="chart-placeholder">
+          <p>📈 数据图表区域（后续接入图表库）</p>
+        </div>
+      </section>
+
+      <!-- 用户管理 -->
+      <section id="users" class="content">
+        <h2>👥 用户管理</h2>
+        <div class="toolbar">
+          <input type="text" id="userSearch" placeholder="搜索用户邮箱/昵称..." />
+          <select id="userFilter">
+            <option value="">全部</option>
+            <option value="user">普通用户</option>
+            <option value="vip">VIP</option>
+            <option value="agent">代理</option>
+          </select>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>用户</th>
+              <th>角色</th>
+              <th>Token 用量</th>
+              <th>注册时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable">
+            <tr><td colspan="5" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 代理管理 -->
+      <section id="agents" class="content">
+        <h2>🤝 代理管理</h2>
+        <div class="toolbar">
+          <button id="addAgentBtn" class="btn-primary">➕ 添加代理</button>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>代理</th>
+              <th>邀请码</th>
+              <th>下级用户</th>
+              <th>累计分润</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="agentsTable">
+            <tr><td colspan="6" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 订单管理 -->
+      <section id="orders" class="content">
+        <h2>💰 订单管理</h2>
+        <div class="toolbar">
+          <select id="orderFilter">
+            <option value="">全部</option>
+            <option value="recharge">充值</option>
+            <option value="package">套餐</option>
+          </select>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>订单号</th>
+              <th>用户</th>
+              <th>类型</th>
+              <th>金额</th>
+              <th>状态</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody id="ordersTable">
+            <tr><td colspan="6" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 系统设置 -->
+      <section id="settings" class="content">
+        <h2>⚙️ 系统设置</h2>
+        <div class="settings-group">
+          <h3>会员配置</h3>
+          <div class="setting-item">
+            <label>免费用户月 Token 配额</label>
+            <input type="number" id="freeQuota" value="100000" />
+          </div>
+          <div class="setting-item">
+            <label>VIP 用户月 Token 配额</label>
+            <input type="number" id="vipQuota" value="1000000" />
+          </div>
+        </div>
+        <div class="settings-group">
+          <h3>代理配置</h3>
+          <div class="setting-item">
+            <label>代理分润比例 (%)</label>
+            <input type="number" id="commissionRate" value="20" min="0" max="100" />
+          </div>
+        </div>
+        <button id="saveSettings" class="btn-primary">保存设置</button>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/supabase-client.js?v=1.0"></script>
+  <script src="js/admin.js?v=1.0"></script>
+</body>
+</html>
