@@ -29,12 +29,12 @@ CREATE TABLE IF NOT EXISTS membership_levels (
 -- 插入默认等级配置
 INSERT INTO membership_levels (level_key, name, name_en, description, token_quota, daily_quota, storage_quota_mb, price_month, price_year, features, sort_order)
 VALUES
-    ('guest',    '游客',    'Guest',     '无需注册，纯本地使用，数据不上云，API 需自备',     50000,   2000,  0,     0,    0,    '{"chat": true, "voice": false, "file": false, "internet": false, "paint": false, "history_limit": 10,  "cloud_sync": false, "api_included": false}',  0),
-    ('user',     '普通',    'User',      '注册会员，仅同步设置数据，对话历史本地存储',       200000,  10000, 0,     0,    0,    '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 50,   "cloud_sync": false, "api_included": false}',  1),
-    ('advanced', '进阶',    'Advanced',  '进阶会员，云端存储 1GB+，完整云同步',              1000000, 50000, 1024,  29,   299,  '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 200,  "cloud_sync": true,  "api_included": false, "priority": true}', 2),
-    ('vip',      'VIP',     'VIP',       'VIP 会员，云端存储 5GB+，专属客服',               5000000, 200000, 5120, 99,   999,  '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": -1,   "cloud_sync": true,  "api_included": false, "priority": true, "support": true}', 3),
-    ('agent',    '代理',    'Agent',     '推广代理，云端存储 1GB，享受分润',               1000000, 50000, 1024,  0,    0,    '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 200,  "cloud_sync": true,  "api_included": false, "agent_panel": true}', 4),
-    ('admin',    '管理员',  'Admin',     '系统管理员，拥有全部权限',                        -1,      -1,   -1,    0,    0,    '{"all": true, "cloud_sync": true, "api_included": false}', 99)
+    ('guest',    '游客',    'Guest',     '无需注册，纯本地使用，数据不上云，API 需自备',     50000,   2000,  0,     0,    0,    '{"chat": true, "voice": false, "file": false, "internet": false, "paint": false, "history_limit": 10,  "cloud_sync": false, "api_upload": false}',  0),
+    ('user',     '普通',    'User',      '注册会员，仅同步设置数据，API 可选上传',           200000,  10000, 0,     0,    0,    '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 50,   "cloud_sync": false, "api_upload": "optional"}',  1),
+    ('advanced', '进阶',    'Advanced',  '进阶会员，云端存储 1GB+，完整云同步',              1000000, 50000, 1024,  29,   299,  '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 200,  "cloud_sync": true,  "api_upload": true, "priority": true}', 2),
+    ('vip',      'VIP',     'VIP',       'VIP 会员，云端存储 5GB+，专属客服',               5000000, 200000, 5120, 99,   999,  '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": -1,   "cloud_sync": true,  "api_upload": true, "priority": true, "support": true}', 3),
+    ('agent',    '代理',    'Agent',     '推广代理，云端存储 1GB，享受分润',               1000000, 50000, 1024,  0,    0,    '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 200,  "cloud_sync": true,  "api_upload": true, "agent_panel": true}', 4),
+    ('admin',    '管理员',  'Admin',     '系统管理员，拥有全部权限',                        -1,      -1,   -1,    0,    0,    '{"all": true, "cloud_sync": true, "api_upload": true}', 99)
 ON CONFLICT (level_key) DO NOTHING;
 
 -- ============================================================
@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     -- API Key（用户自备）
     api_key         TEXT,                            -- 用户自购的 API Key（加密存储）
     api_key_provider TEXT,                           -- 厂商标识（openai/anthropic/ali 等）
+    api_key_uploaded BOOLEAN DEFAULT false,          -- 是否上传到云端（普通用户可选）
 
     -- 余额（充值余额，可用于购买套餐或按量付费）
     balance         DECIMAL(10,2) DEFAULT 0,       -- 余额（元）
