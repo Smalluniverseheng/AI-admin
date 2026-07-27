@@ -27,14 +27,14 @@ CREATE TABLE IF NOT EXISTS membership_levels (
 );
 
 -- 插入默认等级配置
-INSERT INTO membership_levels (level_key, name, name_en, description, token_quota, daily_quota, price_month, price_year, features, sort_order)
+INSERT INTO membership_levels (level_key, name, name_en, description, token_quota, daily_quota, storage_quota_mb, price_month, price_year, features, sort_order)
 VALUES
-    ('guest',    '游客',    'Guest',     '无需注册，纯本地使用，数据不上云',              50000,   2000,  0,    0,    '{"chat": true, "voice": false, "file": false, "internet": false, "paint": false, "history_limit": 10}',  0),
-    ('user',     '普通',    'User',      '注册会员，基础功能',                           200000,  10000, 0,    0,    '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 50}',   1),
-    ('advanced', '进阶',    'Advanced',  '进阶会员，更多配额和优先响应',                  1000000, 50000, 29,   299,  '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 200, "priority": true}', 2),
-    ('vip',      'VIP',     'VIP',       'VIP 会员，最高配额和专属客服',                  5000000, 200000, 99,  999,  '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": -1, "priority": true, "support": true}', 3),
-    ('agent',    '代理',    'Agent',     '推广代理，享受分润',                           1000000, 50000, 0,    0,    '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 200, "agent_panel": true}', 4),
-    ('admin',    '管理员',  'Admin',     '系统管理员，拥有全部权限',                      -1,      -1,    0,    0,    '{"all": true}', 99)
+    ('guest',    '游客',    'Guest',     '无需注册，纯本地使用，数据不上云，API 需自备',     50000,   2000,  0,     0,    0,    '{"chat": true, "voice": false, "file": false, "internet": false, "paint": false, "history_limit": 10,  "cloud_sync": false, "api_included": false}',  0),
+    ('user',     '普通',    'User',      '注册会员，仅同步设置数据，对话历史本地存储',       200000,  10000, 0,     0,    0,    '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 50,   "cloud_sync": false, "api_included": false}',  1),
+    ('advanced', '进阶',    'Advanced',  '进阶会员，云端存储 1GB+，完整云同步',              1000000, 50000, 1024,  29,   299,  '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 200,  "cloud_sync": true,  "api_included": false, "priority": true}', 2),
+    ('vip',      'VIP',     'VIP',       'VIP 会员，云端存储 5GB+，专属客服',               5000000, 200000, 5120, 99,   999,  '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": -1,   "cloud_sync": true,  "api_included": false, "priority": true, "support": true}', 3),
+    ('agent',    '代理',    'Agent',     '推广代理，云端存储 1GB，享受分润',               1000000, 50000, 1024,  0,    0,    '{"chat": true, "voice": true, "file": true, "internet": true, "paint": true, "history_limit": 200,  "cloud_sync": true,  "api_included": false, "agent_panel": true}', 4),
+    ('admin',    '管理员',  'Admin',     '系统管理员，拥有全部权限',                        -1,      -1,   -1,    0,    0,    '{"all": true, "cloud_sync": true, "api_included": false}', 99)
 ON CONFLICT (level_key) DO NOTHING;
 
 -- ============================================================
@@ -56,6 +56,14 @@ CREATE TABLE IF NOT EXISTS profiles (
     token_used_total BIGINT DEFAULT 0,              -- 累计使用
     daily_used      INTEGER DEFAULT 0,             -- 今日已使用
     daily_reset_at  TIMESTAMPTZ,                   -- 每日重置时间
+
+    -- 存储配额（MB）
+    storage_quota_mb INTEGER DEFAULT 0,            -- 云端存储配额（0=不上云）
+    storage_used_mb  INTEGER DEFAULT 0,              -- 已使用存储（MB）
+
+    -- API Key（用户自备）
+    api_key         TEXT,                            -- 用户自购的 API Key（加密存储）
+    api_key_provider TEXT,                           -- 厂商标识（openai/anthropic/ali 等）
 
     -- 余额（充值余额，可用于购买套餐或按量付费）
     balance         DECIMAL(10,2) DEFAULT 0,       -- 余额（元）
@@ -261,17 +269,18 @@ CREATE TABLE IF NOT EXISTS configs (
 
 -- 插入默认配置
 INSERT INTO configs (key, value, description) VALUES
-    ('free_quota',         '{"monthly": 50000,  "daily": 2000}',   '游客每月/每日 Token 配额'),
-    ('user_quota',         '{"monthly": 200000, "daily": 10000}',  '普通会员配额'),
-    ('advanced_quota',     '{"monthly": 1000000,"daily": 50000}',  '进阶会员配额'),
-    ('vip_quota',          '{"monthly": 5000000,"daily": 200000}', 'VIP 会员配额'),
-    ('agent_quota',        '{"monthly": 1000000,"daily": 50000}',  '代理配额'),
+    ('free_quota',         '{"monthly": 50000,  "daily": 2000,  "storage_mb": 0}',    '游客配额'),
+    ('user_quota',         '{"monthly": 200000, "daily": 10000, "storage_mb": 0}',    '普通会员配额（仅设置同步）'),
+    ('advanced_quota',     '{"monthly": 1000000,"daily": 50000,  "storage_mb": 1024}', '进阶会员配额（1GB 云存储）'),
+    ('vip_quota',          '{"monthly": 5000000,"daily": 200000, "storage_mb": 5120}', 'VIP 会员配额（5GB 云存储）'),
+    ('agent_quota',        '{"monthly": 1000000,"daily": 50000,  "storage_mb": 1024}', '代理配额（1GB 云存储）'),
     ('commission_rate',    '{"level1": 20, "level2": 5, "level3": 2}', '代理分润比例（%）'),
     ('agent_min_withdraw', '{"amount": 100}',                      '代理最低提现金额（元）'),
     ('register_reward',    '{"balance": 5, "quota": 10000}',       '注册奖励'),
     ('invite_reward',      '{"balance": 10, "quota": 20000}',      '邀请奖励'),
     ('site_name',          '{"zh": "第三方科技", "en": "ThirdTech"}', '站点名称'),
-    ('maintenance_mode',   '{"enabled": false, "message": "系统维护中"}', '维护模式')
+    ('maintenance_mode',   '{"enabled": false, "message": "系统维护中"}', '维护模式'),
+    ('api_policy',         '{"user_provides": true, "supported_providers": ["openai","anthropic","google","ali","tencent","siliconflow"]}', 'API 政策：用户自备 Key')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================
