@@ -1,0 +1,23 @@
+name = "ai-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-07-27"
+
+# KV 命名空间（缓存 + Key 临时存储）
+[[kv_namespaces]]
+binding = "AI_GATEWAY_KV"
+id = "YOUR_KV_NAMESPACE_ID"
+
+[vars]
+# 这些会暴露在 Worker 代码中，只放不敏感的配置
+# 敏感的 API Key 通过 wrangler secret 设置
+SUPABASE_URL = "https://mxvxlgjzeboktufumxbp.supabase.co"
+
+# 注意：WORKER_SECRET 和 SUPABASE_SERVICE_KEY 以及所有厂商 API Key
+# 都必须通过 wrangler secret 设置，不要写在这里！
+# 
+# 设置命令：
+# wrangler secret put WORKER_SECRET
+# wrangler secret put SUPABASE_SERVICE_KEY
+# wrangler secret put OPENAI_KEY
+# wrangler secret put ANTHROPIC_KEY
+# ...（每个厂商一个）
