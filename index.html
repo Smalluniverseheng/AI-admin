@@ -4,17 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI 管理后台</title>
-  <link rel="stylesheet" href="css/admin.css?v=2.0">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <link rel="stylesheet" href="css/admin.css?v=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
   <!-- 登录页 -->
   <div id="loginPage" class="page active">
     <div class="login-box">
-      <h1>🤖 AI 管理后台</h1>
-      <p>第三方科技 · AI 聚合平台管理端</p>
-      <input type="email" id="loginEmail" placeholder="管理员邮箱" />
-      <input type="password" id="loginPassword" placeholder="密码" />
+      <div class="login-logo">🛡️ AI 管理后台</div>
+      <p>第三方科技 · AI 聚合平台</p>
+      <input type="email" id="loginEmail" placeholder="管理员邮箱" autocomplete="email" />
+      <input type="password" id="loginPassword" placeholder="密码" autocomplete="current-password" />
       <button id="loginBtn">登录</button>
       <p id="loginError" class="error"></p>
     </div>
@@ -23,14 +24,12 @@
   <!-- 管理后台 -->
   <div id="adminPage" class="page">
     <aside class="sidebar">
-      <div class="logo">AI 管理后台</div>
+      <div class="logo">🛡️ 管理后台</div>
       <nav>
         <a href="#" data-page="dashboard" class="active">📊 仪表盘</a>
         <a href="#" data-page="users">👥 用户管理</a>
         <a href="#" data-page="agents">🤝 代理管理</a>
         <a href="#" data-page="orders">💰 订单管理</a>
-        <a href="#" data-page="invites">🎟️ 邀请码</a>
-        <a href="#" data-page="logs">📋 操作日志</a>
         <a href="#" data-page="settings">⚙️ 系统设置</a>
       </nav>
       <div class="user-info">
@@ -43,10 +42,12 @@
       <!-- 仪表盘 -->
       <section id="dashboard" class="content active">
         <h2>📊 仪表盘</h2>
+        <div id="dashboardLoading" class="loading-overlay" style="display:none"><div class="spinner"></div></div>
         <div class="stats-grid">
           <div class="stat-card">
             <div class="stat-value" id="statUsers">0</div>
             <div class="stat-label">总用户数</div>
+            <div class="stat-sub" id="statTodayUsers">0 今日新增</div>
           </div>
           <div class="stat-card">
             <div class="stat-value" id="statAgents">0</div>
@@ -59,26 +60,39 @@
           <div class="stat-card">
             <div class="stat-value" id="statRevenue">¥0</div>
             <div class="stat-label">今日收入</div>
+            <div class="stat-sub" id="statWeekRevenue">本周 ¥0</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="statTokenUsed">0</div>
-            <div class="stat-label">本月 Token 消耗</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="statPendingCommission">¥0</div>
-            <div class="stat-label">待结算分润</div>
+            <div class="stat-value" id="statMonthRevenue">¥0</div>
+            <div class="stat-label">本月收入</div>
           </div>
         </div>
-        <div class="chart-placeholder" id="dashboardCharts">
-          <p>📈 数据加载中...</p>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h4>近7天新增用户</h4>
+            <div class="chart-wrap"><canvas id="userTrendChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>近7天收入趋势</h4>
+            <div class="chart-wrap"><canvas id="revenueTrendChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>会员等级分布</h4>
+            <div class="chart-wrap"><canvas id="roleDistChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h4>Token 用量 Top 5</h4>
+            <div class="chart-wrap"><canvas id="tokenTopChart"></canvas></div>
+          </div>
         </div>
       </section>
 
       <!-- 用户管理 -->
       <section id="users" class="content">
         <h2>👥 用户管理</h2>
+        <div id="usersLoading" class="loading-overlay" style="display:none"><div class="spinner"></div></div>
         <div class="toolbar">
-          <input type="text" id="userSearch" placeholder="搜索邮箱、昵称、ID..." />
+          <input type="text" id="userSearch" placeholder="搜索邮箱或昵称..." />
           <select id="userFilter">
             <option value="">全部角色</option>
             <option value="guest">游客</option>
@@ -88,13 +102,6 @@
             <option value="agent">代理</option>
             <option value="admin">管理员</option>
           </select>
-          <select id="userStatusFilter">
-            <option value="">全部状态</option>
-            <option value="active">正常</option>
-            <option value="suspended">暂停</option>
-            <option value="banned">封禁</option>
-          </select>
-          <button id="refreshUsers" class="btn-primary">🔄 刷新</button>
         </div>
         <table class="data-table">
           <thead>
@@ -118,9 +125,9 @@
       <!-- 代理管理 -->
       <section id="agents" class="content">
         <h2>🤝 代理管理</h2>
+        <div id="agentsLoading" class="loading-overlay" style="display:none"><div class="spinner"></div></div>
         <div class="toolbar">
           <input type="text" id="agentSearch" placeholder="搜索代理..." />
-          <button id="refreshAgents" class="btn-primary">🔄 刷新</button>
         </div>
         <table class="data-table">
           <thead>
@@ -138,28 +145,21 @@
             <tr><td colspan="7" class="empty">加载中...</td></tr>
           </tbody>
         </table>
+        <div class="pagination" id="agentsPagination"></div>
       </section>
 
       <!-- 订单管理 -->
       <section id="orders" class="content">
         <h2>💰 订单管理</h2>
+        <div id="ordersLoading" class="loading-overlay" style="display:none"><div class="spinner"></div></div>
         <div class="toolbar">
+          <input type="text" id="orderSearch" placeholder="搜索订单号..." />
           <select id="orderFilter">
             <option value="">全部类型</option>
             <option value="recharge">充值</option>
             <option value="upgrade">升级</option>
             <option value="package">套餐</option>
           </select>
-          <select id="orderStatusFilter">
-            <option value="">全部状态</option>
-            <option value="pending">待支付</option>
-            <option value="paid">已支付</option>
-            <option value="cancelled">已取消</option>
-            <option value="refunded">已退款</option>
-          </select>
-          <input type="date" id="orderDateFrom" />
-          <input type="date" id="orderDateTo" />
-          <button id="refreshOrders" class="btn-primary">🔄 刷新</button>
         </div>
         <table class="data-table">
           <thead>
@@ -168,9 +168,9 @@
               <th>用户</th>
               <th>类型</th>
               <th>金额</th>
+              <th>实付</th>
               <th>状态</th>
-              <th>代理分润</th>
-              <th>时间</th>
+              <th>支付时间</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -181,256 +181,132 @@
         <div class="pagination" id="ordersPagination"></div>
       </section>
 
-      <!-- 邀请码 -->
-      <section id="invites" class="content">
-        <h2>🎟️ 邀请码管理</h2>
-        <div class="toolbar">
-          <button id="createInviteBtn" class="btn-primary">➕ 创建邀请码</button>
-          <button id="refreshInvites" class="btn-primary">🔄 刷新</button>
-        </div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>邀请码</th>
-              <th>创建者</th>
-              <th>奖励类型</th>
-              <th>奖励值</th>
-              <th>使用次数</th>
-              <th>有效期</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="invitesTable">
-            <tr><td colspan="8" class="empty">加载中...</td></tr>
-          </tbody>
-        </table>
-      </section>
-
-      <!-- 操作日志 -->
-      <section id="logs" class="content">
-        <h2>📋 操作日志</h2>
-        <div class="toolbar">
-          <select id="logActionFilter">
-            <option value="">全部操作</option>
-            <option value="login">登录</option>
-            <option value="logout">退出</option>
-            <option value="recharge">充值</option>
-            <option value="upgrade">升级</option>
-            <option value="agent_apply">代理申请</option>
-            <option value="config_change">配置变更</option>
-          </select>
-          <button id="refreshLogs" class="btn-primary">🔄 刷新</button>
-        </div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>用户</th>
-              <th>操作</th>
-              <th>目标</th>
-              <th>IP</th>
-            </tr>
-          </thead>
-          <tbody id="logsTable">
-            <tr><td colspan="5" class="empty">加载中...</td></tr>
-          </tbody>
-        </table>
-        <div class="pagination" id="logsPagination"></div>
-      </section>
-
       <!-- 系统设置 -->
       <section id="settings" class="content">
         <h2>⚙️ 系统设置</h2>
+        <div id="settingsLoading" class="loading-overlay" style="display:none"><div class="spinner"></div></div>
+
         <div class="settings-group">
-          <h3>📊 会员等级配置</h3>
-          <div id="membershipSettings"></div>
+          <h3>🏅 会员等级配置</h3>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>等级</th>
+                <th>月 Token</th>
+                <th>日 Token</th>
+                <th>存储(MB)</th>
+                <th>月费(¥)</th>
+                <th>年费(¥)</th>
+                <th>展示</th>
+              </tr>
+            </thead>
+            <tbody id="membershipLevelsBody">
+              <tr><td colspan="7" class="empty">加载中...</td></tr>
+            </tbody>
+          </table>
         </div>
+
         <div class="settings-group">
           <h3>🤝 代理分润配置</h3>
-          <div class="setting-item">
-            <label>一级分润比例 (%)</label>
-            <input type="number" id="commissionLevel1" value="20" min="0" max="100" />
+          <div class="form-row">
+            <div class="form-group">
+              <label>一级分润比例 (%)</label>
+              <input type="number" id="commissionLevel1" value="20" min="0" max="100" />
+            </div>
+            <div class="form-group">
+              <label>二级分润比例 (%)</label>
+              <input type="number" id="commissionLevel2" value="5" min="0" max="100" />
+            </div>
+            <div class="form-group">
+              <label>三级分润比例 (%)</label>
+              <input type="number" id="commissionLevel3" value="2" min="0" max="100" />
+            </div>
           </div>
-          <div class="setting-item">
-            <label>二级分润比例 (%)</label>
-            <input type="number" id="commissionLevel2" value="5" min="0" max="100" />
-          </div>
-          <div class="setting-item">
-            <label>三级分润比例 (%)</label>
-            <input type="number" id="commissionLevel3" value="2" min="0" max="100" />
-          </div>
-          <div class="setting-item">
-            <label>最低提现金额 (元)</label>
-            <input type="number" id="minWithdraw" value="100" min="1" />
+          <div class="form-group">
+            <label>最低提现金额 (¥)</label>
+            <input type="number" id="minWithdraw" value="100" />
           </div>
         </div>
+
         <div class="settings-group">
           <h3>🎁 注册奖励</h3>
-          <div class="setting-item">
-            <label>注册赠送余额 (元)</label>
-            <input type="number" id="registerBalance" value="5" min="0" />
-          </div>
-          <div class="setting-item">
-            <label>注册赠送 Token</label>
-            <input type="number" id="registerQuota" value="10000" min="0" />
+          <div class="form-row">
+            <div class="form-group">
+              <label>注册送余额 (¥)</label>
+              <input type="number" id="registerRewardBalance" value="5" />
+            </div>
+            <div class="form-group">
+              <label>注册送 Token</label>
+              <input type="number" id="registerRewardQuota" value="10000" />
+            </div>
           </div>
         </div>
+
         <div class="settings-group">
-          <h3>🔧 站点配置</h3>
-          <div class="setting-item">
-            <label>站点名称 (中文)</label>
-            <input type="text" id="siteNameZh" value="第三方科技" />
+          <h3>🌐 站点配置</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>站点名称 (中文)</label>
+              <input type="text" id="siteNameZh" value="第三方科技" />
+            </div>
+            <div class="form-group">
+              <label>站点名称 (英文)</label>
+              <input type="text" id="siteNameEn" value="ThirdTech" />
+            </div>
           </div>
-          <div class="setting-item">
-            <label>站点名称 (英文)</label>
-            <input type="text" id="siteNameEn" value="ThirdTech" />
+          <div class="form-group checkbox-group">
+            <label><input type="checkbox" id="maintenanceMode" /> 开启维护模式</label>
           </div>
-          <div class="setting-item">
-            <label>维护模式</label>
-            <select id="maintenanceMode">
-              <option value="false">关闭</option>
-              <option value="true">开启</option>
-            </select>
+          <div class="form-group">
+            <label>维护提示信息</label>
+            <input type="text" id="maintenanceMessage" value="系统维护中，请稍后再试" />
           </div>
         </div>
-        <button id="saveSettings" class="btn-primary">💾 保存所有设置</button>
+
+        <div class="settings-group">
+          <h3>🔑 邀请码管理</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>最大使用次数</label>
+              <input type="number" id="inviteMaxUses" value="10" />
+            </div>
+            <div class="form-group">
+              <label>奖励类型</label>
+              <select id="inviteRewardType">
+                <option value="balance">余额</option>
+                <option value="quota">Token 配额</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>奖励数值</label>
+              <input type="number" id="inviteRewardValue" value="10" />
+            </div>
+          </div>
+          <button id="createInviteBtn" class="btn-primary" style="margin-bottom:16px">➕ 生成邀请码</button>
+          <table class="data-table">
+            <thead>
+              <tr><th>邀请码</th><th>创建者</th><th>上限</th><th>已用</th><th>奖励</th><th>状态</th><th>创建时间</th></tr>
+            </thead>
+            <tbody id="inviteCodesTable">
+              <tr><td colspan="7" class="empty">暂无邀请码</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <button id="saveSettings" class="btn-primary btn-large">💾 保存所有设置</button>
       </section>
     </main>
   </div>
 
-  <!-- 用户编辑模态框 -->
-  <div id="userModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>编辑用户</h3>
-        <button class="modal-close" onclick="Admin.closeModal('userModal')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="editUserId" />
-        <div class="form-group">
-          <label>昵称</label>
-          <input type="text" id="editUserNickname" />
-        </div>
-        <div class="form-group">
-          <label>邮箱</label>
-          <input type="email" id="editUserEmail" readonly />
-        </div>
-        <div class="form-group">
-          <label>角色</label>
-          <select id="editUserRole">
-            <option value="guest">游客</option>
-            <option value="user">普通</option>
-            <option value="advanced">进阶</option>
-            <option value="vip">VIP</option>
-            <option value="agent">代理</option>
-            <option value="admin">管理员</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Token 月配额</label>
-          <input type="number" id="editUserTokenQuota" min="0" />
-        </div>
-        <div class="form-group">
-          <label>余额 (元)</label>
-          <input type="number" id="editUserBalance" min="0" step="0.01" />
-        </div>
-        <div class="form-group">
-          <label>状态</label>
-          <select id="editUserStatus">
-            <option value="active">正常</option>
-            <option value="suspended">暂停</option>
-            <option value="banned">封禁</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>状态原因</label>
-          <input type="text" id="editUserStatusReason" placeholder="封禁/暂停原因" />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="Admin.closeModal('userModal')">取消</button>
-        <button class="btn-primary" id="saveUserBtn">保存</button>
-      </div>
+  <!-- 弹窗 -->
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="modal">
+      <button id="modalClose" class="modal-close">&times;</button>
+      <div id="modalBody"></div>
     </div>
   </div>
 
-  <!-- 代理详情模态框 -->
-  <div id="agentModal" class="modal">
-    <div class="modal-content modal-lg">
-      <div class="modal-header">
-        <h3>代理详情</h3>
-        <button class="modal-close" onclick="Admin.closeModal('agentModal')">&times;</button>
-      </div>
-      <div class="modal-body" id="agentModalBody">
-        <p>加载中...</p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="Admin.closeModal('agentModal')">关闭</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 订单详情模态框 -->
-  <div id="orderModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>订单详情</h3>
-        <button class="modal-close" onclick="Admin.closeModal('orderModal')">&times;</button>
-      </div>
-      <div class="modal-body" id="orderModalBody">
-        <p>加载中...</p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="Admin.closeModal('orderModal')">关闭</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 创建邀请码模态框 -->
-  <div id="inviteModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>创建邀请码</h3>
-        <button class="modal-close" onclick="Admin.closeModal('inviteModal')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>邀请码 (留空自动生成)</label>
-          <input type="text" id="inviteCodeInput" placeholder="如 X7K9P2" maxlength="10" />
-        </div>
-        <div class="form-group">
-          <label>最大使用次数</label>
-          <input type="number" id="inviteMaxUses" value="1" min="1" />
-        </div>
-        <div class="form-group">
-          <label>奖励类型</label>
-          <select id="inviteRewardType">
-            <option value="balance">余额</option>
-            <option value="quota">Token 配额</option>
-            <option value="level">等级升级</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>奖励值</label>
-          <input type="number" id="inviteRewardValue" value="10" min="0" />
-        </div>
-        <div class="form-group">
-          <label>有效期至 (留空永久)</label>
-          <input type="datetime-local" id="inviteValidUntil" />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="Admin.closeModal('inviteModal')">取消</button>
-        <button class="btn-primary" id="saveInviteBtn">创建</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 遮罩层 -->
-  <div id="modalOverlay" class="modal-overlay" onclick="Admin.closeAllModals()"></div>
-
-  <script src="js/supabase-client.js?v=2.0"></script>
-  <script src="js/admin.js?v=2.0"></script>
+  <script src="js/supabase-client.js?v=1.0"></script>
+  <script src="js/admin.js?v=1.0"></script>
 </body>
 </html>
