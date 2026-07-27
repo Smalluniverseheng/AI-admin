@@ -25,6 +25,19 @@ https://smalluniverseheng.github.io/AI-admin/
 
 ---
 
+## 账号等级体系
+
+| 等级 | 标识 | 月 Token 配额 | 日配额 | 月费 | 功能 |
+|------|------|---------------|--------|------|------|
+| **游客** | `guest` | 50,000 | 2,000 | 免费 | 基础对话，10条历史，无云同步 |
+| **普通** | `user` | 200,000 | 10,000 | 免费 | 完整功能，50条历史 |
+| **进阶** | `advanced` | 1,000,000 | 50,000 | ¥29 | 优先响应，200条历史 |
+| **VIP** | `vip` | 5,000,000 | 200,000 | ¥99 | 专属客服，无限历史 |
+| **代理** | `agent` | 1,000,000 | 50,000 | 免费 | 代理面板，享受分润 |
+| **管理员** | `admin` | 无限 | 无限 | 免费 | 全部权限，管理后台 |
+
+---
+
 ## 技术栈
 
 - 纯前端 HTML + CSS + Vanilla JS
@@ -37,56 +50,59 @@ https://smalluniverseheng.github.io/AI-admin/
 ## 数据库表（与 AI 平台共用）
 
 ```sql
--- 用户表（扩展 Supabase Auth）
-profiles (
-  id uuid references auth.users,
-  nickname text,
-  avatar_url text,
-  role text,           -- 'user' | 'vip' | 'agent' | 'admin'
-  agent_code text,     -- 代理邀请码
-  parent_agent uuid,   -- 上级代理ID
-  token_quota int,     -- 每月Token配额
-  token_used int,      -- 已使用
-  balance decimal,     -- 余额
-  created_at timestamp
-)
+-- 1. membership_levels — 会员等级配置
+--    level_key: guest | user | advanced | vip | agent | admin
 
--- 代理分润记录
-agent_commissions (
-  id uuid,
-  agent_id uuid references profiles,
-  user_id uuid references profiles,
-  amount decimal,
-  order_id uuid,
-  status text,
-  created_at timestamp
-)
+-- 2. profiles — 用户资料（扩展 auth.users）
+--    role, token_quota, token_used, balance, agent_code, parent_agent_id
 
--- 充值/订单记录
-orders (
-  id uuid,
-  user_id uuid,
-  type text,           -- 'recharge' | 'package'
-  amount decimal,
-  status text,
-  created_at timestamp
-)
+-- 3. token_usage — Token 用量记录（按天统计）
 
--- 系统配置
-configs (
-  key text primary key,
-  value jsonb,
-  updated_at timestamp
-)
+-- 4. orders — 订单（充值/升级/套餐）
+--    支付后自动触发：增加余额/升级等级/计算分润
+
+-- 5. agent_commissions — 代理分润记录
+--    支持三级分润（level1/level2/level3）
+
+-- 6. agent_relations — 代理关系树
+
+-- 7. invite_codes — 邀请码表
+
+-- 8. configs — 系统配置
+
+-- 9. audit_logs — 操作日志（审计）
 ```
+
+**完整 SQL**: 见 `database/schema.sql`
 
 ---
 
-## 开发规则
+## 自动触发器
 
-1. 与 AI 平台共用 Supabase 项目，不要创建新的数据库
-2. 管理员通过 `profiles.role = 'admin'` 识别
-3. 版本号规则同 AI 平台：只用 x.y 格式
+| 触发器 | 说明 |
+|--------|------|
+| `trg_token_usage` | 插入用量后自动更新 profiles 累计用量 |
+| `trg_process_order` | 订单支付后自动：增加余额 + 升级等级 + 计算分润 |
+| `reset_daily_quota()` | 每日重置每日用量（需定时调用） |
+| `check_user_quota()` | 检查用户是否有足够配额 |
+
+---
+
+## 代理分润规则
+
+```
+用户充值/购买 → 订单状态变为 paid
+    ↓
+查找用户的 parent_agent_id（上级代理）
+    ↓
+一级代理分润：订单金额 × commission_rate.level1%（默认 20%）
+    ↓
+查找代理的 parent_agent_id（上上级）
+    ↓
+二级代理分润：订单金额 × commission_rate.level2%（默认 5%）
+    ↓
+三级代理分润：订单金额 × commission_rate.level3%（默认 2%）
+```
 
 ---
 
