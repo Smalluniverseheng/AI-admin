@@ -413,6 +413,21 @@ export default {
       if (url.pathname === '/api/upload-key' && request.method === 'POST') {
         return await handleUploadKey(request, env, origin);
       }
+      if (url.pathname === '/api/v1/card/redeem' && request.method === 'POST') {
+        return await handleCardRedeem(request, env, origin);
+      }
+      if (url.pathname === '/api/v1/card/verify' && request.method === 'POST') {
+        return await handleCardVerify(request, env, origin);
+      }
+      if (url.pathname === '/api/v1/membership' && request.method === 'GET') {
+        return await handleMembershipGet(request, env, origin);
+      }
+      if (url.pathname === '/api/v1/membership' && request.method === 'POST') {
+        return await handleMembershipUpdate(request, env, origin);
+      }
+      if (url.pathname === '/api/v1/proxy' && request.method === 'GET') {
+        return await handleProxy(request, env, origin);
+      }
       if (url.pathname === '/health') {
         return jsonResponse({ status: 'ok', time: Date.now() }, 200, origin);
       }
@@ -886,6 +901,289 @@ async function workerDecrypt(b64: string, secret: string): Promise<string> {
 async function sha256(text: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+
+/* ---------- /api/v1/card/redeem · 卡密激活 ---------- */
+async function handleCardRedeem(request: Request, env: Env, origin: string): Promise<Response> {
+  const body = (await request.json()) as any;
+  const { key, userId } = body;
+
+  if (!key || !userId) {
+    return jsonResponse({ error: '缺少卡密或用户ID' }, 400, origin);
+  }
+
+  // 验证卡密格式
+  const keyPattern = /^TP-[A-Z0-9]{8}-[A-Z0-9]{8}-[A-Z0-9]{8}-[A-Z0-9]{8}-[A-Z0-9]{8}-[A-Z0-9]{8}$/;
+  if (!keyPattern.test(key.toUpperCase())) {
+    return jsonResponse({ error: '卡密格式错误' }, 400, origin);
+  }
+
+  try {
+    // 1. 查询卡密
+    const { data: cardKeys, error: findError } = await fetchSupabase(
+      env, 'GET', 'card_keys', '*', { key_code: key.toUpperCase() }
+    );
+
+    if (findError || !cardKeys || cardKeys.length === 0) {
+      return jsonResponse({ error: '卡密不存在' }, 404, origin);
+    }
+
+    const cardKey = cardKeys[0];
+
+    // 2. 检查是否已使用
+    if (cardKey.is_used) {
+      return jsonResponse({ error: '卡密已被使用' }, 400, origin);
+    }
+
+    // 3. 查询用户当前会员信息
+    const { data: profiles, error: profileError } = await fetchSupabase(
+      env, 'GET', 'profiles', 'plan,plan_expires_at', { id: userId }
+    );
+
+    const currentProfile = profiles && profiles.length > 0 ? profiles[0] : null;
+    const currentPlan = currentProfile?.plan || 'satellite';
+    const currentExpires = currentProfile?.plan_expires_at ? new Date(currentProfile.plan_expires_at) : new Date();
+
+    // 4. 检查等级关系
+    const tierOrder = ['guest', 'satellite', 'planet', 'star', 'galaxy', 'universe'];
+    const currentIdx = tierOrder.indexOf(currentPlan);
+    const newIdx = tierOrder.indexOf(cardKey.plan_type);
+
+    if (newIdx < currentIdx) {
+      return jsonResponse({ error: '当前等级高于卡密等级，请使用同等级或更高等级卡密' }, 400, origin);
+    }
+
+    // 5. 计算新的过期时间
+    const now = new Date();
+    let newExpires: Date;
+    let isUpgrade = false;
+
+    if (newIdx > currentIdx) {
+      // 升级：新等级，从当前时间开始计算
+      newExpires = new Date(now.getTime() + cardKey.duration_days * 86400000);
+      isUpgrade = true;
+    } else {
+      // 同级续费：在当前过期时间上叠加
+      const baseTime = currentExpires > now ? currentExpires : now;
+      newExpires = new Date(baseTime.getTime() + cardKey.duration_days * 86400000);
+    }
+
+    // 6. 更新用户会员信息
+    const updateData = {
+      plan: cardKey.plan_type,
+      plan_expires_at: newExpires.toISOString(),
+      updated_at: now.toISOString(),
+    };
+
+    const { error: updateError } = await fetchSupabase(
+      env, 'PATCH', 'profiles', null, { id: userId }, updateData
+    );
+
+    if (updateError) {
+      return jsonResponse({ error: '更新会员信息失败: ' + updateError.message }, 500, origin);
+    }
+
+    // 7. 标记卡密为已使用
+    const { error: markError } = await fetchSupabase(
+      env, 'PATCH', 'card_keys', null, { id: cardKey.id }, {
+        is_used: true,
+        used_by: userId,
+        used_at: now.toISOString(),
+      }
+    );
+
+    if (markError) {
+      console.error('[CardRedeem] 标记卡密失败:', markError);
+    }
+
+    // 8. 记录日志
+    await fetchSupabase(env, 'POST', 'card_key_logs', null, null, {
+      card_key_id: cardKey.id,
+      user_id: userId,
+      action: 'redeem',
+      ip_address: request.headers.get('CF-Connecting-IP') || '',
+    });
+
+    return jsonResponse({
+      ok: true,
+      planType: cardKey.plan_type,
+      durationDays: cardKey.duration_days,
+      expiresAt: newExpires.toISOString(),
+      isUpgrade,
+      message: isUpgrade
+        ? `升级成功！您已成为【${cardKey.plan_type}】会员，有效期至 ${newExpires.toLocaleDateString('zh-CN')}`
+        : `续费成功！会员有效期延长至 ${newExpires.toLocaleDateString('zh-CN')}`,
+    }, 200, origin);
+
+  } catch (e: any) {
+    console.error('[CardRedeem] error:', e);
+    return jsonResponse({ error: e.message || '卡密激活失败' }, 500, origin);
+  }
+}
+
+/* ---------- /api/v1/card/verify · 卡密预验证（只查不激活） ---------- */
+async function handleCardVerify(request: Request, env: Env, origin: string): Promise<Response> {
+  const body = (await request.json()) as any;
+  const { key } = body;
+
+  if (!key) {
+    return jsonResponse({ error: '缺少卡密' }, 400, origin);
+  }
+
+  const keyPattern = /^TP-[A-Z0-9]{8}-[A-Z0-9]{8}-[A-Z0-9]{8}-[A-Z0-9]{8}-[A-Z0-9]{8}-[A-Z0-9]{8}$/;
+  if (!keyPattern.test(key.toUpperCase())) {
+    return jsonResponse({ valid: false, error: '卡密格式错误' }, 200, origin);
+  }
+
+  try {
+    const { data: cardKeys, error } = await fetchSupabase(
+      env, 'GET', 'card_keys', '*', { key_code: key.toUpperCase() }
+    );
+
+    if (error || !cardKeys || cardKeys.length === 0) {
+      return jsonResponse({ valid: false, error: '卡密不存在' }, 200, origin);
+    }
+
+    const cardKey = cardKeys[0];
+    if (cardKey.is_used) {
+      return jsonResponse({ valid: false, error: '卡密已被使用' }, 200, origin);
+    }
+
+    return jsonResponse({
+      valid: true,
+      planType: cardKey.plan_type,
+      durationDays: cardKey.duration_days,
+      note: cardKey.note,
+    }, 200, origin);
+
+  } catch (e: any) {
+    return jsonResponse({ valid: false, error: e.message }, 500, origin);
+  }
+}
+
+/* ---------- /api/v1/membership GET · 查询用户会员信息 ---------- */
+async function handleMembershipGet(request: Request, env: Env, origin: string): Promise<Response> {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('user_id');
+
+  if (!userId) {
+    return jsonResponse({ error: '缺少 user_id' }, 400, origin);
+  }
+
+  try {
+    // 查询用户会员信息
+    const { data: profiles, error: profileError } = await fetchSupabase(
+      env, 'GET', 'profiles', 'plan,plan_expires_at,storage_used,storage_quota_mb', { id: userId }
+    );
+
+    if (profileError || !profiles || profiles.length === 0) {
+      return jsonResponse({ error: '用户不存在' }, 404, origin);
+    }
+
+    const profile = profiles[0];
+
+    // 查询临时存储额度
+    const { data: bonusStorage, error: bonusError } = await fetchSupabase(
+      env, 'GET', 'user_bonus_storage', '*', { user_id: userId, is_active: true }
+    );
+
+    // 查询设备列表
+    const { data: devices, error: deviceError } = await fetchSupabase(
+      env, 'GET', 'user_devices', '*', { user_id: userId }
+    );
+
+    return jsonResponse({
+      plan: profile.plan || 'satellite',
+      expiresAt: profile.plan_expires_at,
+      storageUsed: profile.storage_used || 0,
+      storageQuota: profile.storage_quota_mb || 0,
+      bonusStorage: bonusStorage || [],
+      devices: devices || [],
+    }, 200, origin);
+
+  } catch (e: any) {
+    return jsonResponse({ error: e.message }, 500, origin);
+  }
+}
+
+/* ---------- /api/v1/membership POST · 更新用户会员信息（管理员用） ---------- */
+async function handleMembershipUpdate(request: Request, env: Env, origin: string): Promise<Response> {
+  const body = (await request.json()) as any;
+  const { userId, plan, expiresAt, storageQuota } = body;
+
+  if (!userId || !plan) {
+    return jsonResponse({ error: '缺少参数' }, 400, origin);
+  }
+
+  try {
+    const updateData: any = {
+      plan,
+      updated_at: new Date().toISOString(),
+    };
+    if (expiresAt) updateData.plan_expires_at = expiresAt;
+    if (storageQuota) updateData.storage_quota_mb = storageQuota;
+
+    const { error } = await fetchSupabase(
+      env, 'PATCH', 'profiles', null, { id: userId }, updateData
+    );
+
+    if (error) {
+      return jsonResponse({ error: error.message }, 500, origin);
+    }
+
+    return jsonResponse({ ok: true }, 200, origin);
+
+  } catch (e: any) {
+    return jsonResponse({ error: e.message }, 500, origin);
+  }
+}
+
+/* ---------- /api/v1/proxy · 书源/图源代理（绕过 CORS） ---------- */
+async function handleProxy(request: Request, env: Env, origin: string): Promise<Response> {
+  const url = new URL(request.url);
+  const targetUrl = url.searchParams.get('url');
+
+  if (!targetUrl) {
+    return jsonResponse({ error: '缺少 url 参数' }, 400, origin);
+  }
+
+  // 验证 URL 是否合法
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(targetUrl);
+  } catch {
+    return jsonResponse({ error: '无效的 URL' }, 400, origin);
+  }
+
+  // 只允许 HTTP/HTTPS
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+    return jsonResponse({ error: '不支持的协议' }, 400, origin);
+  }
+
+  try {
+    const resp = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+
+    const contentType = resp.headers.get('Content-Type') || 'application/octet-stream';
+    const body = await resp.arrayBuffer();
+
+    return new Response(body, {
+      status: resp.status,
+      headers: {
+        ...corsHeaders(origin),
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=300',
+      },
+    });
+
+  } catch (e: any) {
+    return jsonResponse({ error: '代理请求失败: ' + e.message }, 500, origin);
+  }
 }
 
 function jsonResponse(data: any, status: number, origin: string): Response {
