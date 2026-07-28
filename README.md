@@ -132,3 +132,30 @@ https://smalluniverseheng.github.io/AI-admin/
 
 - AI 平台（用户端）: https://github.com/Smalluniverseheng/aiBeta
 - AI 平台（生产服）: https://github.com/Smalluniverseheng/AI
+
+## 🔑 卡密管理
+
+管理员可在后台生成、管理和导出卡密。
+
+### 功能
+- **随机生成卡密**：支持选择等级（行星/恒星/星系/宇宙）、时长（月卡/年卡）、数量（1-100）
+- **批量导出**：支持导出为 CSV 或 TXT 格式
+- **卡密列表**：查看所有卡密的使用状态、使用者、使用时间
+- **筛选搜索**：按等级、状态筛选，按卡密关键词搜索
+
+### 卡密格式
+```
+TP-XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX
+```
+- 50 位字母数字混合
+- 一次性使用，激活后绑定账号
+
+### 数据库表
+- `card_keys` — 卡密主表
+- `card_key_logs` — 卡密使用记录
+- `user_bonus_storage` — 用户临时存储额度（抽奖获得）
+- `lottery_records` — 抽奖记录
+- `user_invites` — 邀请记录
+- `user_devices` — 设备管理
+- `family_groups` / `family_members` — 家庭共享
+
