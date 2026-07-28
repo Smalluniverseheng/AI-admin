@@ -30,6 +30,7 @@
         <a href="#" data-page="users">👥 用户管理</a>
         <a href="#" data-page="agents">🤝 代理管理</a>
         <a href="#" data-page="orders">💰 订单管理</a>
+<a href="#" data-page="cardKeys">🔑 卡密管理</a>
         <a href="#" data-page="settings">⚙️ 系统设置</a>
       </nav>
       <div class="user-info">
@@ -295,6 +296,115 @@
 
         <button id="saveSettings" class="btn-primary btn-large">💾 保存所有设置</button>
       </section>
+
+<!-- 卡密管理 -->
+<section id="cardKeys" class="content">
+  <h2>🔑 卡密管理</h2>
+
+  <div class="cardkey-stats-row">
+    <div class="stat-card">
+      <div class="stat-value" id="cardKeyTotal">0</div>
+      <div class="stat-label">总卡密</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="cardKeyUsed">0</div>
+      <div class="stat-label">已使用</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="cardKeyUnused">0</div>
+      <div class="stat-label">未使用</div>
+    </div>
+  </div>
+
+  <div class="cardkey-gen-panel">
+    <h3>🎲 生成卡密</h3>
+    <div class="cardkey-form">
+      <div class="form-row">
+        <label>会员等级</label>
+        <select id="cardKeyPlan">
+          <option value="planet">🪐 行星 ¥9.9/月</option>
+          <option value="star">☀️ 恒星 ¥29.9/月</option>
+          <option value="galaxy">🌌 星系 ¥59.9/月</option>
+          <option value="universe">🌠 宇宙 ¥99/月</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>时长</label>
+        <select id="cardKeyDuration">
+          <option value="30">月卡（30天）</option>
+          <option value="365">年卡（365天）</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>生成数量</label>
+        <input type="number" id="cardKeyCount" value="10" min="1" max="100">
+      </div>
+      <div class="form-row">
+        <label>备注（可选）</label>
+        <input type="text" id="cardKeyNote" placeholder="如：活动赠送、批量生成">
+      </div>
+      <button class="btn btn-primary" id="btnGenerateCardKeys">🎲 随机生成</button>
+    </div>
+  </div>
+
+  <div class="cardkey-result-panel" id="cardKeyResultPanel" style="display:none">
+    <h3>📋 生成结果</h3>
+    <div class="cardkey-actions">
+      <button class="btn btn-secondary" id="btnCopyCardKeys">📋 复制全部</button>
+      <button class="btn btn-secondary" id="btnExportCardKeysCSV">📁 导出 CSV</button>
+      <button class="btn btn-secondary" id="btnExportCardKeysTXT">📄 导出 TXT</button>
+      <button class="btn btn-danger" id="btnClearCardKeyResult">🗑️ 清空</button>
+    </div>
+    <div class="cardkey-table-wrap">
+      <table class="data-table" id="cardKeyResultTable">
+        <thead>
+          <tr><th>卡密</th><th>等级</th><th>时长</th><th>备注</th></tr>
+        </thead>
+        <tbody id="cardKeyResultBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="cardkey-list-panel">
+    <h3>📦 卡密列表</h3>
+    <div class="cardkey-filter">
+      <select id="cardKeyFilterPlan">
+        <option value="">全部等级</option>
+        <option value="planet">行星</option>
+        <option value="star">恒星</option>
+        <option value="galaxy">星系</option>
+        <option value="universe">宇宙</option>
+      </select>
+      <select id="cardKeyFilterStatus">
+        <option value="">全部状态</option>
+        <option value="unused">未使用</option>
+        <option value="used">已使用</option>
+      </select>
+      <input type="text" id="cardKeySearch" placeholder="搜索卡密...">
+      <button class="btn btn-secondary" id="btnRefreshCardKeys">🔄 刷新</button>
+    </div>
+    <div class="cardkey-table-wrap">
+      <table class="data-table" id="cardKeyTable">
+        <thead>
+          <tr>
+            <th>卡密</th>
+            <th>等级</th>
+            <th>时长</th>
+            <th>状态</th>
+            <th>使用者</th>
+            <th>使用时间</th>
+            <th>备注</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="cardKeyTableBody">
+          <tr><td colspan="8" class="empty">加载中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="cardKeyPagination"></div>
+  </div>
+</section>
     </main>
   </div>
 
