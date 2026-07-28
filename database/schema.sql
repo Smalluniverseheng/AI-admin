@@ -564,3 +564,137 @@ $$ language 'plpgsql';
 -- 完成
 -- ============================================================
 SELECT '数据库表结构创建完成！共 9 张表 + 触发器 + RLS 策略' AS status;
+
+
+-- ============================================================
+-- CARD KEYS · 卡密系统
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS card_keys (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  key_code text UNIQUE NOT NULL,
+  plan_type text NOT NULL CHECK (plan_type IN ('planet', 'star', 'galaxy', 'universe')),
+  duration_days int NOT NULL CHECK (duration_days IN (30, 365)),
+  is_used boolean DEFAULT false,
+  used_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  used_at timestamptz,
+  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at timestamptz DEFAULT now(),
+  note text
+);
+
+-- 卡密使用记录
+CREATE TABLE IF NOT EXISTS card_key_logs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  card_key_id uuid REFERENCES card_keys(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  action text NOT NULL CHECK (action IN ('redeem', 'revoke', 'delete')),
+  ip_address text,
+  created_at timestamptz DEFAULT now()
+);
+
+-- 用户临时存储额度（抽奖获得）
+CREATE TABLE IF NOT EXISTS user_bonus_storage (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  size_bytes bigint NOT NULL,
+  started_at timestamptz DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  is_active boolean DEFAULT true,
+  source text DEFAULT 'lottery' CHECK (source IN ('lottery', 'event', 'admin')),
+  created_at timestamptz DEFAULT now()
+);
+
+-- 邀请记录
+CREATE TABLE IF NOT EXISTS user_invites (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  inviter_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  invitee_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  invite_code text,
+  invitee_paid boolean DEFAULT false,
+  lottery_earned boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(inviter_id, invitee_id)
+);
+
+-- 抽奖记录
+CREATE TABLE IF NOT EXISTS lottery_records (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  prize_type text NOT NULL CHECK (prize_type IN ('none', 'membership', 'storage')),
+  prize_detail jsonb,
+  prize_tier int,
+  is_claimed boolean DEFAULT true,
+  claimed_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now()
+);
+
+-- 设备表
+CREATE TABLE IF NOT EXISTS user_devices (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  device_name text,
+  device_type text CHECK (device_type IN ('mobile', 'tablet', 'desktop', 'unknown')),
+  device_model text,
+  os text,
+  browser text,
+  ip_address text,
+  location text,
+  last_active timestamptz,
+  is_trusted boolean DEFAULT false,
+  is_current boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+
+-- 家庭组
+CREATE TABLE IF NOT EXISTS family_groups (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  plan_type text NOT NULL,
+  total_storage bigint,
+  created_at timestamptz DEFAULT now(),
+  dissolved_at timestamptz,
+  is_active boolean DEFAULT true
+);
+
+-- 家庭成员
+CREATE TABLE IF NOT EXISTS family_members (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  family_id uuid REFERENCES family_groups(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  allocated_storage bigint DEFAULT 0,
+  is_owner boolean DEFAULT false,
+  joined_at timestamptz DEFAULT now(),
+  left_at timestamptz,
+  UNIQUE(family_id, user_id)
+);
+
+-- 索引
+CREATE INDEX IF NOT EXISTS idx_card_keys_plan ON card_keys(plan_type);
+CREATE INDEX IF NOT EXISTS idx_card_keys_used ON card_keys(is_used);
+CREATE INDEX IF NOT EXISTS idx_card_keys_code ON card_keys(key_code);
+CREATE INDEX IF NOT EXISTS idx_bonus_storage_user ON user_bonus_storage(user_id);
+CREATE INDEX IF NOT EXISTS idx_bonus_storage_expires ON user_bonus_storage(expires_at);
+CREATE INDEX IF NOT EXISTS idx_invites_inviter ON user_invites(inviter_id);
+CREATE INDEX IF NOT EXISTS idx_lottery_user ON lottery_records(user_id);
+CREATE INDEX IF NOT EXISTS idx_devices_user ON user_devices(user_id);
+CREATE INDEX IF NOT EXISTS idx_family_owner ON family_groups(owner_id);
+
+-- RLS 策略（卡密表只有管理员可操作）
+ALTER TABLE card_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE card_key_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_bonus_storage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_invites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lottery_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_devices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE family_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE family_members ENABLE ROW LEVEL SECURITY;
+
+-- 用户只能查看自己的数据
+CREATE POLICY "用户查看自己的卡密日志" ON card_key_logs FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "用户查看自己的临时存储" ON user_bonus_storage FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "用户查看自己的邀请" ON user_invites FOR SELECT USING (inviter_id = auth.uid() OR invitee_id = auth.uid());
+CREATE POLICY "用户查看自己的抽奖记录" ON lottery_records FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "用户管理自己的设备" ON user_devices FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "用户查看自己的家庭组" ON family_groups FOR SELECT USING (owner_id = auth.uid());
+CREATE POLICY "用户查看自己的家庭成员" ON family_members FOR ALL USING (user_id = auth.uid());
