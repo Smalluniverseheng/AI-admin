@@ -179,3 +179,29 @@ CloudAgent.toggleMode();
 ---
 
 *交接完成。Worker 部署后替换 URL 即可上线。*
+
+---
+
+## 2026-07-29 更新 · v5.7 会员体系对接
+
+### 新增功能
+- **卡密管理页面** (`index.html` + `js/admin.js` + `css/admin.css`)
+  - 随机生成 50 位卡密
+  - 支持批量导出 CSV/TXT
+  - 卡密列表筛选与搜索
+  - 使用状态统计
+
+- **数据库表扩展** (`database/schema.sql` + `database/schema-cloud.sql`)
+  - `card_keys` — 卡密主表
+  - `card_key_logs` — 使用记录
+  - `user_bonus_storage` — 抽奖临时存储
+  - `lottery_records` — 抽奖记录
+  - `user_invites` — 邀请记录
+  - `user_devices` — 设备管理
+  - `family_groups` / `family_members` — 家庭共享
+
+### 与主站对接
+- 主站 (`aiBeta`) 已更新 v5.7 会员体系
+- 用户在前端输入卡密 → 调用 Worker API → 验证并激活
+- 管理员在后台生成卡密 → 分发用户 → 用户自助激活
+
