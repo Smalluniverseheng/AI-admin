@@ -1195,3 +1195,285 @@ const Admin = {
 };
 
 document.addEventListener('DOMContentLoaded', () => Admin.init());
+
+/* ============================================================
+   CARD KEY MANAGEMENT · 卡密管理
+   ============================================================ */
+
+const CardKeyManager = (() => {
+  const PLAN_NAMES = {
+    planet: { name: '行星', icon: '🪐', price: 9.9 },
+    star: { name: '恒星', icon: '☀️', price: 29.9 },
+    galaxy: { name: '星系', icon: '🌌', price: 59.9 },
+    universe: { name: '宇宙', icon: '🌠', price: 99 }
+  };
+
+  let generatedKeys = []; // 本次生成的卡密（未入库）
+  let dbKeys = [];        // 数据库中的卡密
+
+  /* ---------- 生成随机卡密 ---------- */
+  function generateKey() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const parts = [];
+    for (let i = 0; i < 6; i++) {
+      let part = '';
+      for (let j = 0; j < 8; j++) {
+        part += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      parts.push(part);
+    }
+    return 'TP-' + parts.join('-');
+  }
+
+  /* ---------- 批量生成 ---------- */
+  function generateBatch() {
+    const plan = document.getElementById('cardKeyPlan').value;
+    const duration = parseInt(document.getElementById('cardKeyDuration').value);
+    const count = parseInt(document.getElementById('cardKeyCount').value);
+    const note = document.getElementById('cardKeyNote').value.trim();
+
+    if (!plan || !duration || !count || count < 1 || count > 100) {
+      alert('请填写完整的生成信息，数量范围 1-100');
+      return;
+    }
+
+    generatedKeys = [];
+    for (let i = 0; i < count; i++) {
+      generatedKeys.push({
+        key: generateKey(),
+        plan: plan,
+        duration: duration,
+        note: note,
+        isNew: true
+      });
+    }
+
+    renderGeneratedKeys();
+    document.getElementById('cardKeyResultPanel').style.display = 'block';
+
+    // 自动滚动到结果区域
+    document.getElementById('cardKeyResultPanel').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  /* ---------- 渲染生成的卡密 ---------- */
+  function renderGeneratedKeys() {
+    const tbody = document.getElementById('cardKeyResultBody');
+    if (!tbody) return;
+
+    const planInfo = PLAN_NAMES;
+    tbody.innerHTML = generatedKeys.map(k => {
+      const p = planInfo[k.plan];
+      return `<tr>
+        <td><code class="cardkey-code">${k.key}</code></td>
+        <td>${p ? p.icon + ' ' + p.name : k.plan}</td>
+        <td>${k.duration}天</td>
+        <td>${k.note || '-'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ---------- 复制全部 ---------- */
+  function copyAll() {
+    if (generatedKeys.length === 0) return;
+    const text = generatedKeys.map(k => k.key).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      alert('已复制 ' + generatedKeys.length + ' 个卡密到剪贴板');
+    }).catch(() => {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      alert('已复制 ' + generatedKeys.length + ' 个卡密到剪贴板');
+    });
+  }
+
+  /* ---------- 导出 CSV ---------- */
+  function exportCSV() {
+    if (generatedKeys.length === 0) return;
+    const headers = ['卡密', '等级', '时长(天)', '备注'];
+    const rows = generatedKeys.map(k => {
+      const p = PLAN_NAMES[k.plan];
+      return [k.key, p ? p.name : k.plan, k.duration, k.note || ''];
+    });
+    let csv = '\uFEFF' + headers.join(',') + '\n';
+    rows.forEach(r => {
+      csv += r.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(',') + '\n';
+    });
+    downloadFile(csv, 'card_keys_' + new Date().toISOString().slice(0,10) + '.csv', 'text/csv;charset=utf-8;');
+  }
+
+  /* ---------- 导出 TXT ---------- */
+  function exportTXT() {
+    if (generatedKeys.length === 0) return;
+    const text = generatedKeys.map(k => {
+      const p = PLAN_NAMES[k.plan];
+      return k.key + '  [' + (p ? p.name : k.plan) + ' ' + k.duration + '天]  ' + (k.note || '');
+    }).join('\n');
+    downloadFile(text, 'card_keys_' + new Date().toISOString().slice(0,10) + '.txt', 'text/plain');
+  }
+
+  function downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  /* ---------- 清空结果 ---------- */
+  function clearResult() {
+    generatedKeys = [];
+    document.getElementById('cardKeyResultBody').innerHTML = '';
+    document.getElementById('cardKeyResultPanel').style.display = 'none';
+  }
+
+  /* ---------- 从数据库加载卡密列表 ---------- */
+  async function loadKeys() {
+    const tbody = document.getElementById('cardKeyTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">加载中...</td></tr>';
+
+    try {
+      // 如果 Supabase 可用，从数据库加载
+      if (typeof SB !== 'undefined' && SB.ready && SB.ready()) {
+        const { data, error } = await SB._client
+          .from('card_keys')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+        dbKeys = data || [];
+      } else {
+        // 演示模式：显示空数据
+        dbKeys = [];
+      }
+
+      renderDbKeys();
+      updateStats();
+    } catch (e) {
+      console.error('[CardKey] loadKeys error:', e);
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">加载失败：' + e.message + '</td></tr>';
+    }
+  }
+
+  /* ---------- 渲染数据库卡密 ---------- */
+  function renderDbKeys() {
+    const tbody = document.getElementById('cardKeyTableBody');
+    if (!tbody) return;
+
+    const filterPlan = document.getElementById('cardKeyFilterPlan')?.value || '';
+    const filterStatus = document.getElementById('cardKeyFilterStatus')?.value || '';
+    const search = document.getElementById('cardKeySearch')?.value.trim().toUpperCase() || '';
+
+    let filtered = dbKeys.filter(k => {
+      if (filterPlan && k.plan_type !== filterPlan) return false;
+      if (filterStatus === 'unused' && k.is_used) return false;
+      if (filterStatus === 'used' && !k.is_used) return false;
+      if (search && !k.key_code.toUpperCase().includes(search)) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">暂无卡密数据</td></tr>';
+      return;
+    }
+
+    const planInfo = PLAN_NAMES;
+    tbody.innerHTML = filtered.map(k => {
+      const p = planInfo[k.plan_type];
+      return `<tr>
+        <td><code class="cardkey-code">${k.key_code}</code></td>
+        <td>${p ? p.icon + ' ' + p.name : k.plan_type}</td>
+        <td>${k.duration_days}天</td>
+        <td><span class="badge ${k.is_used ? 'badge-used' : 'badge-unused'}">${k.is_used ? '已使用' : '未使用'}</span></td>
+        <td>${k.used_by ? k.used_by.substring(0, 8) + '...' : '-'}</td>
+        <td>${k.used_at ? new Date(k.used_at).toLocaleString('zh-CN') : '-'}</td>
+        <td>${k.note || '-'}</td>
+        <td>
+          <button class="btn btn-sm btn-copy" data-key="${k.key_code}">复制</button>
+          ${!k.is_used ? `<button class="btn btn-sm btn-delete" data-id="${k.id}">删除</button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+
+    // 绑定复制按钮
+    tbody.querySelectorAll('.btn-copy').forEach(btn => {
+      btn.addEventListener('click', () => {
+        navigator.clipboard.writeText(btn.dataset.key);
+        btn.textContent = '已复制';
+        setTimeout(() => btn.textContent = '复制', 1500);
+      });
+    });
+  }
+
+  /* ---------- 更新统计 ---------- */
+  function updateStats() {
+    const total = dbKeys.length;
+    const used = dbKeys.filter(k => k.is_used).length;
+    const unused = total - used;
+
+    const elTotal = document.getElementById('cardKeyTotal');
+    const elUsed = document.getElementById('cardKeyUsed');
+    const elUnused = document.getElementById('cardKeyUnused');
+
+    if (elTotal) elTotal.textContent = total;
+    if (elUsed) elUsed.textContent = used;
+    if (elUnused) elUnused.textContent = unused;
+  }
+
+  /* ---------- 初始化 ---------- */
+  function init() {
+    // 生成按钮
+    const btnGen = document.getElementById('btnGenerateCardKeys');
+    if (btnGen) btnGen.addEventListener('click', generateBatch);
+
+    // 复制按钮
+    const btnCopy = document.getElementById('btnCopyCardKeys');
+    if (btnCopy) btnCopy.addEventListener('click', copyAll);
+
+    // 导出按钮
+    const btnCSV = document.getElementById('btnExportCardKeysCSV');
+    if (btnCSV) btnCSV.addEventListener('click', exportCSV);
+
+    const btnTXT = document.getElementById('btnExportCardKeysTXT');
+    if (btnTXT) btnTXT.addEventListener('click', exportTXT);
+
+    // 清空按钮
+    const btnClear = document.getElementById('btnClearCardKeyResult');
+    if (btnClear) btnClear.addEventListener('click', clearResult);
+
+    // 刷新按钮
+    const btnRefresh = document.getElementById('btnRefreshCardKeys');
+    if (btnRefresh) btnRefresh.addEventListener('click', loadKeys);
+
+    // 筛选器
+    ['cardKeyFilterPlan', 'cardKeyFilterStatus', 'cardKeySearch'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', renderDbKeys);
+      if (el && id === 'cardKeySearch') el.addEventListener('input', renderDbKeys);
+    });
+
+    // 页面切换时加载
+    document.querySelectorAll('[data-page="cardKeys"]').forEach(link => {
+      link.addEventListener('click', () => {
+        setTimeout(loadKeys, 100);
+      });
+    });
+  }
+
+  return { init, generateBatch, loadKeys };
+})();
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => {
+  CardKeyManager.init();
+});
