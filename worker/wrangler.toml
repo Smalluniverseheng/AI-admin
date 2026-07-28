@@ -1,5 +1,5 @@
 name = "ai-gateway"
-main = "src/index.ts"
+main = "index.ts"
 compatibility_date = "2026-07-27"
 
 # KV 命名空间（缓存 + Key 临时存储）
