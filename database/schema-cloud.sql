@@ -127,3 +127,53 @@ ON CONFLICT (key) DO NOTHING;
 
 -- 完成
 SELECT '云端代理模式表结构追加完成！' AS status;
+
+
+-- ============================================================
+-- CARD KEYS · 卡密系统（云端精简版）
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS card_keys (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  key_code text UNIQUE NOT NULL,
+  plan_type text NOT NULL,
+  duration_days int NOT NULL,
+  is_used boolean DEFAULT false,
+  used_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  used_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  note text
+);
+
+CREATE TABLE IF NOT EXISTS user_bonus_storage (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  size_bytes bigint NOT NULL,
+  started_at timestamptz DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  is_active boolean DEFAULT true,
+  source text DEFAULT 'lottery',
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS lottery_records (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  prize_type text NOT NULL,
+  prize_detail jsonb,
+  prize_tier int,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_devices (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  device_name text,
+  device_type text,
+  last_active timestamptz,
+  is_trusted boolean DEFAULT false,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_card_keys_used ON card_keys(is_used);
+CREATE INDEX IF NOT EXISTS idx_bonus_storage_user ON user_bonus_storage(user_id);
