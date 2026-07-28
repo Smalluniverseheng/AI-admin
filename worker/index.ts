@@ -556,13 +556,9 @@ async function handleChat(request: Request, env: Env, origin: string): Promise<R
             }
           }
         }
-        await writer.write(encoder.encode('data: [DONE]
-
-'));
+        await writer.write(encoder.encode('data: [DONE]\n\n'));
       } catch (e) {
-        await writer.write(encoder.encode(`data: ${JSON.stringify({ error: String(e) })}
-
-`));
+        await writer.write(encoder.encode(`data: ${JSON.stringify({ error: String(e) })}\n\n`));
       } finally {
         await writer.close();
       }
