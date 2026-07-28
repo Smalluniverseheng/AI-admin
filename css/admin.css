@@ -743,3 +743,204 @@ code {
   .main-content { margin-left: 0; padding: 16px; }
   .stats-grid { grid-template-columns: 1fr; }
 }
+
+
+/* ========== 卡密管理样式 ========== */
+
+/* 统计卡片 */
+.cardkey-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* 生成面板 */
+.cardkey-gen-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.cardkey-gen-panel h3 {
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+.cardkey-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+.cardkey-form .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cardkey-form label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #555;
+}
+.cardkey-form select,
+.cardkey-form input[type="number"],
+.cardkey-form input[type="text"] {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fafafa;
+}
+.cardkey-form select:focus,
+.cardkey-form input:focus {
+  outline: none;
+  border-color: #6366f1;
+  background: #fff;
+}
+
+/* 结果面板 */
+.cardkey-result-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.cardkey-result-panel h3 {
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+.cardkey-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+/* 卡密代码样式 */
+code.cardkey-code {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  font-size: 12px;
+  background: #f0f0f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  color: #333;
+}
+
+/* 列表面板 */
+.cardkey-list-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.cardkey-list-panel h3 {
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* 筛选器 */
+.cardkey-filter {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.cardkey-filter select,
+.cardkey-filter input {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.cardkey-filter input {
+  flex: 1;
+  min-width: 150px;
+}
+
+/* 表格 */
+.cardkey-table-wrap {
+  overflow-x: auto;
+}
+.cardkey-table-wrap .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.cardkey-table-wrap .data-table th,
+.cardkey-table-wrap .data-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+.cardkey-table-wrap .data-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #555;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.cardkey-table-wrap .data-table tr:hover {
+  background: #f8f9fa;
+}
+.cardkey-table-wrap .data-table .empty {
+  text-align: center;
+  color: #888;
+  padding: 40px;
+}
+
+/* 状态徽章 */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.badge-unused {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge-used {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* 小按钮 */
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+.btn-copy {
+  background: #e0e7ff;
+  color: #4338ca;
+  border: none;
+}
+.btn-copy:hover {
+  background: #c7d2fe;
+}
+.btn-delete {
+  background: #fee2e2;
+  color: #991b1b;
+  border: none;
+  margin-left: 4px;
+}
+.btn-delete:hover {
+  background: #fecaca;
+}
+
+/* 分页 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 16px;
+}
