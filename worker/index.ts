@@ -841,7 +841,7 @@ function createSupabaseClient(env: Env) {
 }
 
 // 简化版：直接用 fetch 调 Supabase REST API
-async function fetchSupabase(env: Env, method: string, table: string, select?: string | null, filters?: Record<string, any> | null, body?: any) {
+async function fetchSupabase(env, method, table, select, filters, body) {
   let url = `${env.SUPABASE_URL}/rest/v1/${table}`;
   if (select) url += `?select=${encodeURIComponent(select)}`;
   if (filters) {
