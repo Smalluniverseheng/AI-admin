@@ -377,7 +377,7 @@ const PROVIDERS: Record<string, ProviderConfig> = {
 };
 
 /* ---------- CORS ---------- */
-function corsHeaders(origin = '*'): Record<string, string> {
+function corsHeaders(origin = '*') {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, PUT, DELETE',
@@ -449,8 +449,8 @@ async function handleChat(request: Request, env: Env, origin: string): Promise<R
   }
 
   // 1. 解析厂商
-  let providerKey: string;
-  let modelId: string;
+  let providerKey;
+  let modelId;
   if (model.includes('/')) {
     [providerKey, modelId] = model.split('/');
   } else {
