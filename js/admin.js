@@ -14,6 +14,25 @@ const Admin = {
   charts: {},
   cache: {},
   pageSize: 20,
+  userRoleTab: '',
+  userDataUserId: '',
+
+  /* 关注列表（本地存储，按管理员设备） */
+  get followed() {
+    try { return JSON.parse(localStorage.getItem('admin_followed') || '[]'); }
+    catch (_) { return []; }
+  },
+  set followed(v) {
+    localStorage.setItem('admin_followed', JSON.stringify(v));
+  },
+  isFollowed(uid) { return this.followed.includes(uid); },
+  toggleFollow(uid) {
+    const f = this.followed;
+    const i = f.indexOf(uid);
+    if (i >= 0) f.splice(i, 1); else f.push(uid);
+    this.followed = f;
+    this.loadUsers(1);
+  },
 
   init() {
     this.supabase = window.supabaseClient;
@@ -84,6 +103,26 @@ const Admin = {
     // 用户管理搜索
     $('#userSearch').addEventListener('input', this.debounce(() => this.loadUsers(1), 300));
     $('#userFilter').addEventListener('change', () => this.loadUsers(1));
+
+    // 用户等级分组 tabs
+    $$('#userRoleTabs .user-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('#userRoleTabs .user-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.userRoleTab = btn.dataset.role || '';
+        this.loadUsers(1);
+      });
+    });
+
+    // 用户数据页：选择用户
+    $('#userDataUser')?.addEventListener('change', (e) => {
+      this.userDataUserId = e.target.value;
+      $('#userDataBody').style.display = this.userDataUserId ? '' : 'none';
+      if (this.userDataUserId) {
+        this.loadUserApis();
+        this.loadUserSources();
+      }
+    });
 
     // 订单筛选
     $('#orderFilter').addEventListener('change', () => this.loadOrders(1));
@@ -214,6 +253,7 @@ const Admin = {
 
     if (page === 'dashboard') this.loadDashboard();
     if (page === 'users') this.loadUsers(1);
+    if (page === 'userData') this.loadUserDataUsers();
     if (page === 'agents') this.loadAgents(1);
     if (page === 'orders') this.loadOrders(1);
     if (page === 'settings') this.loadSettings();
@@ -310,7 +350,7 @@ const Admin = {
     this.setLoading('users', true);
     try {
       const search = $('#userSearch').value.trim();
-      const filter = $('#userFilter').value;
+      const tab = this.userRoleTab;
       const from = (page - 1) * this.pageSize;
       const to = from + this.pageSize - 1;
 
@@ -319,8 +359,19 @@ const Admin = {
       if (search) {
         query = query.or(`email.ilike.%${search}%,nickname.ilike.%${search}%`);
       }
-      if (filter) {
-        query = query.eq('role', filter);
+      if (tab === '__followed') {
+        const f = this.followed;
+        if (f.length === 0) {
+          $('#usersTable').innerHTML = '<tr><td colspan="8" class="empty">还没有关注的用户，点击用户行的 ☆ 关注他们</td></tr>';
+          this.renderPagination('usersPagination', 1, 0);
+          this.setLoading('users', false);
+          return;
+        }
+        query = query.in('id', f);
+      } else if (tab === '__other') {
+        query = query.in('role', ['guest', 'agent', 'admin']);
+      } else if (tab) {
+        query = query.eq('role', tab);
       }
 
       const { data, count, error } = await query
@@ -336,13 +387,18 @@ const Admin = {
         return;
       }
 
-      tbody.innerHTML = data.map(u => {
+      // 关注用户排在最前
+      const sorted = [...data].sort((a, b) =>
+        (this.isFollowed(b.id) ? 1 : 0) - (this.isFollowed(a.id) ? 1 : 0));
+      tbody.innerHTML = sorted.map(u => {
         const tokenPercent = u.token_quota > 0 ? Math.min(100, Math.round((u.token_used || 0) / u.token_quota * 100)) : 0;
         const statusClass = u.status === 'active' ? 'status-active' : (u.status === 'suspended' ? 'status-suspended' : 'status-banned');
+        const star = this.isFollowed(u.id) ? '⭐' : '☆';
         return `
           <tr>
             <td>
               <div class="user-cell">
+                <button class="follow-btn" title="关注/置顶" onclick="Admin.toggleFollow('${u.id}')">${star}</button>
                 <div class="avatar">${(u.nickname || u.email || 'U').charAt(0).toUpperCase()}</div>
                 <div>
                   <div class="user-name">${u.nickname || '未命名'}</div>
@@ -379,6 +435,201 @@ const Admin = {
       this.toast('加载用户失败: ' + err.message, 'error');
     }
     this.setLoading('users', false);
+  },
+
+  /* ---------- 用户数据（API 配置 + 书源） ---------- */
+
+  async loadUserDataUsers() {
+    const sel = $('#userDataUser');
+    if (!sel) return;
+    try {
+      const { data, error } = await this.supabase
+        .from('profiles')
+        .select('id, email, nickname, role')
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      sel.innerHTML = '<option value="">选择用户查看其 API 与书源...</option>' +
+        (data || []).map(u =>
+          `<option value="${u.id}" ${u.id === this.userDataUserId ? 'selected' : ''}>${u.nickname || '未命名'}（${u.email || u.id.slice(0, 8)}）</option>`
+        ).join('');
+    } catch (err) {
+      this.toast('加载用户列表失败: ' + err.message, 'error');
+    }
+  },
+
+  async loadUserApis() {
+    const uid = this.userDataUserId;
+    if (!uid) return;
+    this.setLoading('userData', true);
+    try {
+      const { data, error } = await this.supabase
+        .from('user_api_configs')
+        .select('*')
+        .eq('user_id', uid)
+        .order('updated_at', { ascending: false });
+      if (error) throw error;
+      const rows = (data || []).filter(r => !String(r.provider || '').startsWith('__'));
+      $('#userApisTable').innerHTML = rows.length === 0
+        ? '<tr><td colspan="5" class="empty">该用户还没有 API 配置</td></tr>'
+        : rows.map(r => `
+          <tr>
+            <td>${r.name || r.provider}</td>
+            <td class="mono">${r.base_url || '-'}</td>
+            <td class="mono">${r.api_key ? r.api_key.slice(0, 6) + '…' + r.api_key.slice(-4) : '-'}</td>
+            <td>${this.fmtDate(r.updated_at)}</td>
+            <td><button class="btn-sm btn-danger" onclick="Admin.deleteUserApi('${r.id}')">删除</button></td>
+          </tr>`).join('');
+    } catch (err) {
+      this.toast('加载 API 配置失败: ' + err.message, 'error');
+    }
+    this.setLoading('userData', false);
+  },
+
+  async loadUserSources() {
+    const uid = this.userDataUserId;
+    if (!uid) return;
+    this.setLoading('userData', true);
+    try {
+      const { data, error } = await this.supabase
+        .from('user_sources')
+        .select('id, media_type, name, enabled, created_at')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      const typeName = { novel: '小说', comic: '漫画', video: '视频' };
+      $('#userSourcesTable').innerHTML = !data || data.length === 0
+        ? '<tr><td colspan="5" class="empty">该用户还没有书源</td></tr>'
+        : data.map(r => `
+          <tr>
+            <td>${r.name || '-'}</td>
+            <td>${typeName[r.media_type] || (String(r.media_type || '').startsWith('tauri_') ? 'Tauri·' + r.media_type.slice(6) : r.media_type)}</td>
+            <td>${r.enabled ? '<span class="status-dot status-active">启用</span>' : '<span class="status-dot status-suspended">停用</span>'}</td>
+            <td>${this.fmtDate(r.created_at)}</td>
+            <td><button class="btn-sm btn-danger" onclick="Admin.deleteUserSource('${r.id}')">删除</button></td>
+          </tr>`).join('');
+    } catch (err) {
+      this.toast('加载书源失败: ' + err.message, 'error');
+    }
+    this.setLoading('userData', false);
+  },
+
+  showAddUserApi() {
+    this.showModal(`
+      <h3>给用户添加 API</h3>
+      <div class="form-group">
+        <label>厂商标识（如 deepseek / kimi / qwen）</label>
+        <input type="text" id="uaProvider" placeholder="deepseek" />
+      </div>
+      <div class="form-group">
+        <label>显示名称</label>
+        <input type="text" id="uaName" placeholder="DeepSeek" />
+      </div>
+      <div class="form-group">
+        <label>Base URL（可空，用默认官方地址）</label>
+        <input type="text" id="uaBase" placeholder="https://api.deepseek.com" />
+      </div>
+      <div class="form-group">
+        <label>API Key</label>
+        <input type="text" id="uaKey" placeholder="sk-..." />
+      </div>
+      <div class="modal-actions">
+        <button onclick="Admin.closeModal()">取消</button>
+        <button class="btn-primary" onclick="Admin.addUserApi()">保存</button>
+      </div>
+    `);
+  },
+
+  async addUserApi() {
+    const provider = $('#uaProvider').value.trim();
+    const name = $('#uaName').value.trim();
+    const base = $('#uaBase').value.trim();
+    const key = $('#uaKey').value.trim();
+    if (!provider || !key) { this.toast('厂商标识与 API Key 必填', 'warning'); return; }
+    try {
+      const { error } = await this.supabase.from('user_api_configs').insert({
+        user_id: this.userDataUserId,
+        provider, name: name || provider, base_url: base, api_key: key,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      this.closeModal();
+      this.toast('API 已添加，用户下次登录自动同步到 App', 'success');
+      this.loadUserApis();
+    } catch (err) {
+      this.toast('添加失败: ' + err.message, 'error');
+    }
+  },
+
+  async deleteUserApi(id) {
+    if (!confirm('确定删除这条 API 配置？')) return;
+    const { error } = await this.supabase.from('user_api_configs').delete().eq('id', id);
+    if (error) this.toast('删除失败: ' + error.message, 'error');
+    else { this.toast('已删除', 'success'); this.loadUserApis(); }
+  },
+
+  showAddUserSource() {
+    this.showModal(`
+      <h3>给用户添加书源</h3>
+      <div class="form-group">
+        <label>类型</label>
+        <select id="usType">
+          <option value="novel">小说（Legado 书源 JSON）</option>
+          <option value="comic">漫画（JS 源码）</option>
+          <option value="video">视频（TVBox 站点 JSON）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>名称（可空，从内容识别）</label>
+        <input type="text" id="usName" />
+      </div>
+      <div class="form-group">
+        <label>书源内容（粘贴 JSON 或 JS 源码）</label>
+        <textarea id="usJson" rows="10" style="width:100%;font-family:monospace;font-size:12px" placeholder='{"bookSourceName":"...",...}'></textarea>
+      </div>
+      <div class="modal-actions">
+        <button onclick="Admin.closeModal()">取消</button>
+        <button class="btn-primary" onclick="Admin.addUserSource()">保存</button>
+      </div>
+    `);
+  },
+
+  async addUserSource() {
+    const type = $('#usType').value;
+    const name = $('#usName').value.trim();
+    const raw = $('#usJson').value.trim();
+    if (!raw) { this.toast('请粘贴书源内容', 'warning'); return; }
+    let j;
+    if (type === 'comic') {
+      j = { js: raw, name };
+    } else {
+      try { j = JSON.parse(raw); }
+      catch (_) { this.toast('JSON 格式错误', 'error'); return; }
+    }
+    const finalName = name || j.bookSourceName || j.name || '未命名书源';
+    try {
+      const { error } = await this.supabase.from('user_sources').insert({
+        user_id: this.userDataUserId,
+        media_type: type,
+        name: finalName,
+        source_json: j,
+        enabled: true,
+      });
+      if (error) throw error;
+      this.closeModal();
+      this.toast('书源已添加，用户下次登录自动同步到 App', 'success');
+      this.loadUserSources();
+    } catch (err) {
+      this.toast('添加失败: ' + err.message, 'error');
+    }
+  },
+
+  async deleteUserSource(id) {
+    if (!confirm('确定删除这个书源？')) return;
+    const { error } = await this.supabase.from('user_sources').delete().eq('id', id);
+    if (error) this.toast('删除失败: ' + error.message, 'error');
+    else { this.toast('已删除', 'success'); this.loadUserSources(); }
   },
 
   async quickSetRole(userId, role) {

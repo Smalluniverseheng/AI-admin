@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI 管理后台</title>
-  <link rel="stylesheet" href="css/admin.css?v=1.3">
+  <link rel="stylesheet" href="css/admin.css?v=1.4">
   <script src="js/vendor/supabase.min.js?v=1.1"></script>
   <script src="js/vendor/chart.umd.min.js?v=1.1"></script>
 </head>
@@ -41,6 +41,7 @@
       <nav>
         <a href="#" data-page="dashboard" class="active">📊 仪表盘</a>
         <a href="#" data-page="users">👥 用户管理</a>
+        <a href="#" data-page="userData">📦 用户数据</a>
         <a href="#" data-page="agents">🤝 代理管理</a>
         <a href="#" data-page="orders">💰 订单管理</a>
 <a href="#" data-page="cardKeys">🔑 卡密管理</a>
@@ -106,9 +107,18 @@
       <section id="users" class="content">
         <h2>👥 用户管理</h2>
         <div id="usersLoading" class="loading-overlay" style="display:none"><div class="spinner"></div></div>
+        <div class="user-tabs" id="userRoleTabs">
+          <button class="user-tab active" data-role="">全部</button>
+          <button class="user-tab" data-role="__followed">⭐ 我的关注</button>
+          <button class="user-tab" data-role="user">普通用户</button>
+          <button class="user-tab" data-role="advanced">进阶用户</button>
+          <button class="user-tab" data-role="vip">会员</button>
+          <button class="user-tab" data-role="svip">高级会员</button>
+          <button class="user-tab" data-role="__other">其他</button>
+        </div>
         <div class="toolbar">
           <input type="text" id="userSearch" placeholder="搜索邮箱或昵称..." />
-          <select id="userFilter">
+          <select id="userFilter" style="display:none">
             <option value="">全部角色</option>
             <option value="guest">游客</option>
             <option value="user">普通</option>
@@ -137,6 +147,47 @@
           </tbody>
         </table>
         <div class="pagination" id="usersPagination"></div>
+      </section>
+
+      <!-- 用户数据（API 配置 + 书源） -->
+      <section id="userData" class="content">
+        <h2>📦 用户数据</h2>
+        <div id="userDataLoading" class="loading-overlay" style="display:none"><div class="spinner"></div></div>
+        <div class="toolbar">
+          <select id="userDataUser" style="flex:1;min-width:200px">
+            <option value="">选择用户查看其 API 与书源...</option>
+          </select>
+        </div>
+        <div id="userDataBody" style="display:none">
+          <div class="card">
+            <div class="card-header">
+              <h3>🔑 API 配置</h3>
+              <button class="btn-sm btn-primary" onclick="Admin.showAddUserApi()">+ 添加 API</button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr><th>厂商</th><th>Base URL</th><th>API Key</th><th>更新时间</th><th>操作</th></tr>
+              </thead>
+              <tbody id="userApisTable">
+                <tr><td colspan="5" class="empty">暂无数据</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h3>📚 书源</h3>
+              <button class="btn-sm btn-primary" onclick="Admin.showAddUserSource()">+ 添加书源</button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr><th>名称</th><th>类型</th><th>状态</th><th>同步时间</th><th>操作</th></tr>
+              </thead>
+              <tbody id="userSourcesTable">
+                <tr><td colspan="5" class="empty">暂无数据</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- 代理管理 -->
@@ -433,6 +484,6 @@
   </div>
 
   <script src="js/supabase-client.js?v=1.1"></script>
-  <script src="js/admin.js?v=1.3"></script>
+  <script src="js/admin.js?v=1.4"></script>
 </body>
 </html>
