@@ -944,3 +944,15 @@ code.cardkey-code {
   gap: 4px;
   margin-top: 16px;
 }
+
+/* 密码框 + 眼睛切换 */
+.pwd-wrap { position: relative; }
+.pwd-wrap input { width: 100%; padding-right: 42px; }
+.pwd-toggle {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: none !important; border: none; padding: 4px !important;
+  margin: 0 !important; width: auto !important;
+  color: var(--text-secondary, #888); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.pwd-toggle:hover { color: var(--primary, #6366F1); background: none !important; }

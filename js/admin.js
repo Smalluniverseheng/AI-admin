@@ -29,6 +29,31 @@ const Admin = {
       if (e.key === 'Enter') this.login();
     });
 
+    // 密码可见性切换（眼睛图标）
+    const pwdInput = $('#loginPassword');
+    $('#pwdToggle').addEventListener('click', () => {
+      const show = pwdInput.type === 'password';
+      pwdInput.type = show ? 'text' : 'password';
+      $('#pwdEyeOpen').style.display = show ? 'none' : '';
+      $('#pwdEyeClosed').style.display = show ? '' : 'none';
+    });
+
+    // 账号/密码禁止空格与不可见字符（零宽空格、BOM 等）
+    const stripInvisible = (v) => v.replace(/[\s\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g, '');
+    ['#loginEmail', '#loginPassword'].forEach((sel) => {
+      const el = $(sel);
+      el.addEventListener('input', () => {
+        const cleaned = stripInvisible(el.value);
+        if (el.value !== cleaned) el.value = cleaned;
+      });
+      el.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const t = (e.clipboardData || window.clipboardData).getData('text');
+        const cleaned = stripInvisible(t);
+        document.execCommand('insertText', false, cleaned);
+      });
+    });
+
     // 登出
     $('#logoutBtn').addEventListener('click', () => this.logout());
 
@@ -86,8 +111,10 @@ const Admin = {
   },
 
   async login() {
-    const email = $('#loginEmail').value.trim();
+    let email = $('#loginEmail').value.trim();
     const password = $('#loginPassword').value;
+    // 支持纯账号（不带 @）：自动补平台默认域名
+    if (email && !email.includes('@')) email = email + '@omnihub.app';
     const errorEl = $('#loginError');
     const btn = $('#loginBtn');
 
