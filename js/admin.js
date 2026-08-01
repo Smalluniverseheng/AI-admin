@@ -23,6 +23,19 @@ const Admin = {
 
   /* ---------- 事件绑定 ---------- */
   bindEvents() {
+    // 移动端菜单
+    $('#menuBtn')?.addEventListener('click', () => {
+      document.body.classList.toggle('sidebar-open');
+    });
+    $('#sidebarOverlay')?.addEventListener('click', () => {
+      document.body.classList.remove('sidebar-open');
+    });
+    document.querySelectorAll('.sidebar nav a').forEach(a => {
+      a.addEventListener('click', () => {
+        document.body.classList.remove('sidebar-open');
+      });
+    });
+
     // 登录
     $('#loginBtn').addEventListener('click', () => this.login());
     $('#loginPassword').addEventListener('keypress', (e) => {
@@ -318,7 +331,7 @@ const Admin = {
 
       const tbody = $('#usersTable');
       if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty">暂无数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">暂无数据</td></tr>';
         this.renderPagination('usersPagination', page, 0);
         return;
       }
@@ -342,6 +355,7 @@ const Admin = {
                 ${this.roleOptions(u.role)}
               </select>
             </td>
+            <td><span class="storage-quota">${this.storageQuotaText(u.role)}</span></td>
             <td>
               <div class="token-bar">
                 <div class="token-bar-inner" style="width:${tokenPercent}%"></div>
@@ -376,7 +390,11 @@ const Admin = {
       }
       const { error } = await this.supabase
         .from('profiles')
-        .update({ role, updated_at: new Date().toISOString() })
+        .update({
+          role,
+          storage_quota: this.roleQuotaMb(role) * 1024 * 1024,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', userId);
       if (error) throw error;
       await this.logAudit('update_user_role', 'user', userId, null, { role });
@@ -1228,14 +1246,25 @@ const Admin = {
   },
 
   roleName(key) {
-    const map = { guest: '游客', user: '普通', advanced: '进阶', vip: 'VIP', agent: '代理', admin: '管理员' };
+    const map = { guest: '游客', user: '普通', advanced: '进阶', vip: '会员', svip: '高级会员', agent: '代理', admin: '管理员' };
     return map[key] || key;
   },
 
+  /// 会员等级 → 云同步存储配额（MB）
+  roleQuotaMb(key) {
+    const map = { guest: 5, user: 5, advanced: 500, vip: 1024, svip: 5120, agent: 5120, admin: 5120 };
+    return map[key] ?? 5;
+  },
+
+  storageQuotaText(key) {
+    const mb = this.roleQuotaMb(key || 'user');
+    return mb >= 1024 ? `${mb / 1024}GB` : `${mb}MB`;
+  },
+
   roleOptions(selected) {
-    const roles = ['guest', 'user', 'advanced', 'vip', 'agent', 'admin'];
+    const roles = ['guest', 'user', 'advanced', 'vip', 'svip', 'agent', 'admin'];
     return roles.map(role =>
-      `<option value="${role}" ${selected === role ? 'selected' : ''}>${this.roleName(role)}</option>`
+      `<option value="${role}" ${selected === role ? 'selected' : ''}>${this.roleName(role)}（${this.storageQuotaText(role)}）</option>`
     ).join('');
   },
 

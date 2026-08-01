@@ -750,19 +750,85 @@ code {
   color: var(--primary-light);
 }
 
+/* ---------- 移动端顶栏与抽屉 ---------- */
+.mobile-topbar {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  z-index: 90;
+}
+.menu-btn {
+  border: none;
+  background: var(--surface-light);
+  border-radius: 8px;
+  width: 36px; height: 36px;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text);
+}
+.mobile-title { font-weight: 700; font-size: 15px; }
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 98;
+}
+.storage-quota {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-light);
+}
+
 /* ---------- 响应式 ---------- */
 @media (max-width: 768px) {
-  .sidebar { width: 200px; }
-  .main-content { margin-left: 200px; padding: 20px; }
+  .mobile-topbar { display: flex; }
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 240px;
+    z-index: 99;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+  }
+  body.sidebar-open .sidebar { transform: translateX(0); }
+  body.sidebar-open .sidebar-overlay { display: block; }
+  .main-content { margin-left: 0; padding: 66px 14px 18px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .charts-grid { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
+
+  /* 表格转卡片 */
+  .data-table, .data-table tbody { display: block; }
+  .data-table thead { display: none; }
+  .data-table tr {
+    display: block;
+    margin-bottom: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .data-table td {
+    display: block;
+    border: none;
+    padding: 6px 0;
+  }
+  .data-table td .user-cell { display: flex; align-items: center; gap: 10px; }
+  .data-table .role-select { width: 100%; }
+  .data-table .btn-sm { margin-right: 8px; }
 }
 
 @media (max-width: 600px) {
-  .sidebar { display: none; }
-  .main-content { margin-left: 0; padding: 16px; }
-  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar input, .toolbar select { width: 100%; }
 }
 
 
