@@ -240,6 +240,15 @@ body {
   opacity: 0.8;
 }
 
+.stat-card.clickable { cursor: pointer; }
+.stat-card.clickable:hover { border-color: var(--primary); }
+.stat-action {
+  margin-top: 12px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 /* ---------- 图表 ---------- */
 .charts-grid {
   display: grid;
@@ -378,6 +387,18 @@ body {
 .badge-warning { background: var(--warning); color: black; }
 .badge-danger { background: var(--danger); color: white; }
 .badge-secondary { background: #475569; color: white; }
+
+.role-select {
+  min-width: 96px;
+  padding: 6px 28px 6px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-light);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
 
 /* ---------- 用户单元格 ---------- */
 .user-cell {

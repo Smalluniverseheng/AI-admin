@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI 管理后台</title>
-  <link rel="stylesheet" href="css/admin.css?v=1.1">
+  <link rel="stylesheet" href="css/admin.css?v=1.2">
   <script src="js/vendor/supabase.min.js?v=1.1"></script>
   <script src="js/vendor/chart.umd.min.js?v=1.1"></script>
 </head>
@@ -51,10 +51,11 @@
         <h2>📊 仪表盘</h2>
         <div id="dashboardLoading" class="loading-overlay" style="display:none"><div class="spinner"></div></div>
         <div class="stats-grid">
-          <div class="stat-card">
+          <div class="stat-card clickable" id="statUsersCard">
             <div class="stat-value" id="statUsers">0</div>
             <div class="stat-label">总用户数</div>
             <div class="stat-sub" id="statTodayUsers">0 今日新增</div>
+            <div class="stat-action">点击查看用户 →</div>
           </div>
           <div class="stat-card">
             <div class="stat-value" id="statAgents">0</div>
@@ -423,6 +424,6 @@
   </div>
 
   <script src="js/supabase-client.js?v=1.1"></script>
-  <script src="js/admin.js?v=1.1"></script>
+  <script src="js/admin.js?v=1.2"></script>
 </body>
 </html>

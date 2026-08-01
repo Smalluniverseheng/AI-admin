@@ -65,6 +65,9 @@ const Admin = {
       });
     });
 
+    // 仪表盘总用户数卡片：点击进入用户管理
+    $('#statUsersCard')?.addEventListener('click', () => this.navigate('users'));
+
     // 用户管理搜索
     $('#userSearch').addEventListener('input', this.debounce(() => this.loadUsers(1), 300));
     $('#userFilter').addEventListener('change', () => this.loadUsers(1));
@@ -321,8 +324,6 @@ const Admin = {
       }
 
       tbody.innerHTML = data.map(u => {
-        const roleClass = `badge-${u.role || 'user'}`;
-        const roleName = this.roleName(u.role);
         const tokenPercent = u.token_quota > 0 ? Math.min(100, Math.round((u.token_used || 0) / u.token_quota * 100)) : 0;
         const statusClass = u.status === 'active' ? 'status-active' : (u.status === 'suspended' ? 'status-suspended' : 'status-banned');
         return `
@@ -336,7 +337,11 @@ const Admin = {
                 </div>
               </div>
             </td>
-            <td><span class="badge ${roleClass}">${roleName}</span></td>
+            <td>
+              <select class="role-select" onchange="Admin.quickSetRole('${u.id}', this.value)">
+                ${this.roleOptions(u.role)}
+              </select>
+            </td>
             <td>
               <div class="token-bar">
                 <div class="token-bar-inner" style="width:${tokenPercent}%"></div>
@@ -360,6 +365,27 @@ const Admin = {
       this.toast('加载用户失败: ' + err.message, 'error');
     }
     this.setLoading('users', false);
+  },
+
+  async quickSetRole(userId, role) {
+    try {
+      if (userId === this.currentUser?.id && role !== 'admin') {
+        this.toast('不能移除当前登录账号的管理员权限', 'warning');
+        this.loadUsers(1);
+        return;
+      }
+      const { error } = await this.supabase
+        .from('profiles')
+        .update({ role, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+      if (error) throw error;
+      await this.logAudit('update_user_role', 'user', userId, null, { role });
+      this.toast(`等级已调整为：${this.roleName(role)}`, 'success');
+      this.loadUsers(1);
+    } catch (err) {
+      this.toast('调整等级失败: ' + err.message, 'error');
+      this.loadUsers(1);
+    }
   },
 
   async editUser(userId) {
@@ -1204,6 +1230,13 @@ const Admin = {
   roleName(key) {
     const map = { guest: '游客', user: '普通', advanced: '进阶', vip: 'VIP', agent: '代理', admin: '管理员' };
     return map[key] || key;
+  },
+
+  roleOptions(selected) {
+    const roles = ['guest', 'user', 'advanced', 'vip', 'agent', 'admin'];
+    return roles.map(role =>
+      `<option value="${role}" ${selected === role ? 'selected' : ''}>${this.roleName(role)}</option>`
+    ).join('');
   },
 
   statusName(key) {
