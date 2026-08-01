@@ -393,6 +393,7 @@ const Admin = {
         .update({
           role,
           storage_quota: this.roleQuotaMb(role) * 1024 * 1024,
+          storage_quota_mb: this.roleQuotaMb(role),
           updated_at: new Date().toISOString(),
         })
         .eq('id', userId);
