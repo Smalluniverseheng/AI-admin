@@ -91,6 +91,11 @@ const Admin = {
 
   /* ---------- 会话管理 ---------- */
   async checkSession() {
+    if (!this.supabase) {
+      this.showLogin();
+      $('#loginError').textContent = window.supabaseInitError || '登录组件加载失败，请刷新页面重试';
+      return;
+    }
     try {
       const { data: { session } } = await this.supabase.auth.getSession();
       if (session?.user) {
@@ -117,6 +122,11 @@ const Admin = {
     if (email && !email.includes('@')) email = email + '@omnihub.app';
     const errorEl = $('#loginError');
     const btn = $('#loginBtn');
+
+    if (!this.supabase) {
+      errorEl.textContent = window.supabaseInitError || '登录组件加载失败，请刷新页面重试';
+      return;
+    }
 
     if (!email || !password) {
       errorEl.textContent = '请输入邮箱和密码';
@@ -156,7 +166,7 @@ const Admin = {
   },
 
   async logout() {
-    await this.supabase.auth.signOut();
+    if (this.supabase) await this.supabase.auth.signOut();
     this.currentUser = null;
     this.showLogin();
   },
@@ -1213,6 +1223,7 @@ const Admin = {
 
   translateError(err) {
     const msg = String(err?.message || err || '');
+    if (/Cannot read properties of undefined.*auth/i.test(msg)) return '登录组件加载失败，请刷新页面重试';
     if (/Invalid login credentials/i.test(msg)) return '邮箱或密码错误';
     if (/Email not confirmed/i.test(msg)) return '邮箱未验证';
     if (/row level security|permission denied/i.test(msg)) return '权限不足';
